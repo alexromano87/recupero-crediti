@@ -1,6 +1,7 @@
 import { Routes, Route } from 'react-router-dom';
 import { AppLayout } from './layout/AppLayout';
 import { ClientiPage } from './pages/ClientiPage';
+import { RicercaPage } from './pages/RicercaPage';
 
 function DashboardPage() {
   return (
@@ -21,10 +22,6 @@ function DebitoriPage() {
 
 function PratichePage() {
   return <h2 className="text-xl font-semibold">Pratiche (placeholder)</h2>;
-}
-
-function RicercaPage() {
-  return <h2 className="text-xl font-semibold">Ricerca avanzata (placeholder)</h2>;
 }
 
 function AlertPage() {
@@ -62,6 +59,7 @@ function App() {
       <Routes>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/clienti" element={<ClientiPage />} />
+        <Route path="/clienti/:id" element={<ClientiPage />} /> 
         <Route path="/debitori" element={<DebitoriPage />} />
         <Route path="/pratiche" element={<PratichePage />} />
         <Route path="/alert" element={<AlertPage />} />

@@ -18,13 +18,18 @@ let Cliente = class Cliente {
     ragioneSociale;
     codiceFiscale;
     partitaIva;
+    sedeLegale;
+    sedeOperativa;
     indirizzo;
     cap;
     citta;
     provincia;
     nazione;
+    tipologia;
+    referente;
     telefono;
     email;
+    pec;
 };
 exports.Cliente = Cliente;
 __decorate([
@@ -54,9 +59,17 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
+], Cliente.prototype, "sedeLegale", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], Cliente.prototype, "sedeOperativa", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
 ], Cliente.prototype, "indirizzo", void 0);
 __decorate([
-    (0, typeorm_1.Column)({ nullable: true, length: 10 }),
+    (0, typeorm_1.Column)({ nullable: true, length: 5 }),
     __metadata("design:type", String)
 ], Cliente.prototype, "cap", void 0);
 __decorate([
@@ -74,11 +87,23 @@ __decorate([
 __decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
+], Cliente.prototype, "tipologia", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], Cliente.prototype, "referente", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
 ], Cliente.prototype, "telefono", void 0);
 __decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
 ], Cliente.prototype, "email", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ nullable: true }),
+    __metadata("design:type", String)
+], Cliente.prototype, "pec", void 0);
 exports.Cliente = Cliente = __decorate([
     (0, typeorm_1.Entity)('clienti')
 ], Cliente);

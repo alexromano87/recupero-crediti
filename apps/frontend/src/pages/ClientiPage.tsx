@@ -1,10 +1,13 @@
 // apps/frontend/src/pages/ClientiPage.tsx
+import { useEffect } from 'react';
+import { useParams } from 'react-router-dom';
 import { ChevronDown } from 'lucide-react';
 
 import { useClientiPage } from '../features/clienti/useClientiPage';
 import {
   CLIENTE_FIELD_CONFIG,
   NAZIONI_OPTIONS,
+  TIPOLOGIA_OPTIONS,
 } from '../features/clienti/constants';
 
 export function ClientiPage() {
@@ -23,6 +26,25 @@ export function ClientiPage() {
     resetForm,
     editingId,
   } = useClientiPage();
+
+  const params = useParams<{ id?: string }>();
+
+  useEffect(() => {
+    if (!params.id || !clienti.length) return;
+
+    const cliente = clienti.find((c) => c.id === params.id);
+    if (cliente) {
+      handleSelectCliente(cliente);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [params.id, clienti]);
+
+  const tipologiaLabelMap = Object.fromEntries(
+    TIPOLOGIA_OPTIONS.filter((t) => t.value !== '').map((t) => [
+      t.value,
+      t.label,
+    ]),
+  );
 
   return (
     <div className="space-y-6">
@@ -105,6 +127,43 @@ export function ClientiPage() {
               />
             </div>
 
+            {/* TIPOLOGIA + REFERENTE */}
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  Tipologia
+                </label>
+                <div className="relative mt-1">
+                  <select
+                    name="tipologia"
+                    value={form.tipologia}
+                    onChange={handleChange}
+                    className="w-full appearance-none rounded-md border border-slate-200 bg-white/95 px-3 py-2 pr-8 text-xs text-slate-900 shadow-sm shadow-slate-200/60 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:shadow-black/40"
+                  >
+                    {TIPOLOGIA_OPTIONS.map((opt) => (
+                      <option key={opt.value || 'empty'} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="pointer-events-none absolute inset-y-0 right-2 my-auto h-4 w-4 text-slate-400 dark:text-slate-500" />
+                </div>
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  {CLIENTE_FIELD_CONFIG.referente.label}
+                </label>
+                <input
+                  type="text"
+                  name="referente"
+                  value={form.referente}
+                  onChange={handleChange}
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:shadow-black/40 dark:placeholder:text-slate-500"
+                  placeholder={CLIENTE_FIELD_CONFIG.referente.placeholder}
+                />
+              </div>
+            </div>
+
             {/* P.IVA + TELEFONO */}
             <div className="grid gap-3 md:grid-cols-2">
               <div>
@@ -135,6 +194,36 @@ export function ClientiPage() {
               </div>
             </div>
 
+            {/* SEDE LEGALE + SEDE OPERATIVA */}
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  {CLIENTE_FIELD_CONFIG.sedeLegale.label}
+                </label>
+                <input
+                  type="text"
+                  name="sedeLegale"
+                  value={form.sedeLegale}
+                  onChange={handleChange}
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:shadow-black/40 dark:placeholder:text-slate-500"
+                  placeholder={CLIENTE_FIELD_CONFIG.sedeLegale.placeholder}
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  {CLIENTE_FIELD_CONFIG.sedeOperativa.label}
+                </label>
+                <input
+                  type="text"
+                  name="sedeOperativa"
+                  value={form.sedeOperativa}
+                  onChange={handleChange}
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:shadow-black/40 dark:placeholder:text-slate-500"
+                  placeholder={CLIENTE_FIELD_CONFIG.sedeOperativa.placeholder}
+                />
+              </div>
+            </div>
+
             {/* INDIRIZZO + CAP */}
             <div className="grid gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)]">
               <div>
@@ -159,7 +248,7 @@ export function ClientiPage() {
                   name="cap"
                   value={form.cap}
                   onChange={handleChange}
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:shadow-black/40 dark:placeholder:text-slate-500"
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:placeholder:text-slate-500"
                   placeholder={CLIENTE_FIELD_CONFIG.cap.placeholder}
                 />
               </div>
@@ -176,7 +265,7 @@ export function ClientiPage() {
                   name="citta"
                   value={form.citta}
                   onChange={handleChange}
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:shadow-black/40 dark:placeholder:text-slate-500"
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:placeholder:text-slate-500"
                   placeholder={CLIENTE_FIELD_CONFIG.citta.placeholder}
                 />
               </div>
@@ -189,7 +278,7 @@ export function ClientiPage() {
                   name="provincia"
                   value={form.provincia}
                   onChange={handleChange}
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:shadow-black/40 dark:placeholder:text-slate-500"
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:placeholder:text-slate-500"
                   placeholder={CLIENTE_FIELD_CONFIG.provincia.placeholder}
                 />
               </div>
@@ -215,19 +304,34 @@ export function ClientiPage() {
               </div>
             </div>
 
-            {/* EMAIL */}
-            <div>
-              <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                {CLIENTE_FIELD_CONFIG.email.label}
-              </label>
-              <input
-                type="email"
-                name="email"
-                value={form.email}
-                onChange={handleChange}
-                className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:shadow-black/40 dark:placeholder:text-slate-500"
-                placeholder={CLIENTE_FIELD_CONFIG.email.placeholder}
-              />
+            {/* EMAIL + PEC */}
+            <div className="grid gap-3 md:grid-cols-2">
+              <div>
+                <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  {CLIENTE_FIELD_CONFIG.email.label}
+                </label>
+                <input
+                  type="email"
+                  name="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:shadow-black/40 dark:placeholder:text-slate-500"
+                  placeholder={CLIENTE_FIELD_CONFIG.email.placeholder}
+                />
+              </div>
+              <div>
+                <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                  {CLIENTE_FIELD_CONFIG.pec.label}
+                </label>
+                <input
+                  type="email"
+                  name="pec"
+                  value={form.pec}
+                  onChange={handleChange}
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:shadow-black/40 dark:placeholder:text-slate-500"
+                  placeholder={CLIENTE_FIELD_CONFIG.pec.placeholder}
+                />
+              </div>
             </div>
 
             {/* BOTTONI */}
@@ -286,49 +390,85 @@ export function ClientiPage() {
                 <thead className="bg-slate-50/80 text-[11px] uppercase tracking-[0.12em] text-slate-400 dark:bg-slate-900/60 dark:text-slate-500">
                   <tr>
                     <th className="px-3 py-2 text-left">Ragione sociale</th>
-                    <th className="px-3 py-2 text-left">P. IVA</th>
-                    <th className="px-3 py-2 text-left">Città</th>
-                    <th className="px-3 py-2 text-left">Email</th>
+                    <th className="px-3 py-2 text-left">Tipologia</th>
+                    <th className="px-3 py-2 text-left">Referente</th>
+                    <th className="px-3 py-2 text-left">Contatti</th>
                     <th className="px-3 py-2 text-right">Azioni</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {clienti.map((c, idx) => (
-                    <tr
-                      key={c.id}
-                      onClick={() => handleSelectCliente(c)}
-                      className={[
-                        'cursor-pointer border-b border-slate-100 text-slate-700 hover:bg-slate-50/80 dark:border-slate-900 dark:text-slate-100 dark:hover:bg-slate-900/60',
-                        idx % 2 === 0
-                          ? 'bg-white dark:bg-slate-950/40'
-                          : 'bg-slate-50/60 dark:bg-slate-900/40',
-                        editingId === c.id
-                          ? 'ring-1 ring-indigo-400 dark:ring-indigo-500'
-                          : '',
-                      ].join(' ')}
-                    >
-                      <td className="px-3 py-2 text-xs font-medium">
-                        {c.ragioneSociale}
-                      </td>
-                      <td className="px-3 py-2 text-xs">
-                        {c.partitaIva || '-'}
-                      </td>
-                      <td className="px-3 py-2 text-xs">{c.citta || '-'}</td>
-                      <td className="px-3 py-2 text-xs">{c.email || '-'}</td>
-                      <td
-                        className="px-3 py-2 text-right"
-                        onClick={(e) => e.stopPropagation()}
+                  {clienti.map((c, idx) => {
+                    const tipologiaLabel =
+                      (c as any).tipologia &&
+                      tipologiaLabelMap[(c as any).tipologia] &&
+                      tipologiaLabelMap[(c as any).tipologia];
+
+                    return (
+                      <tr
+                        key={c.id}
+                        onClick={() => handleSelectCliente(c)}
+                        className={[
+                          'cursor-pointer border-b border-slate-100 text-slate-700 hover:bg-slate-50/80 dark:border-slate-900 dark:text-slate-100 dark:hover:bg-slate-900/60',
+                          idx % 2 === 0
+                            ? 'bg-white dark:bg-slate-950/40'
+                            : 'bg-slate-50/60 dark:bg-slate-900/40',
+                          editingId === c.id
+                            ? 'ring-1 ring-indigo-400 dark:ring-indigo-500'
+                            : '',
+                        ].join(' ')}
                       >
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteCliente(c)}
-                          className="rounded-full border border-rose-200 px-3 py-1 text-[10px] font-semibold text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/60"
+                        <td className="px-3 py-2 text-xs font-medium">
+                          {c.ragioneSociale}
+                        </td>
+
+                        {/* Tipologia */}
+                        <td className="px-3 py-2 text-xs">
+                          {tipologiaLabel || '-'}
+                        </td>
+
+                        {/* Referente */}
+                        <td className="px-3 py-2 text-xs">
+                          {(c as any).referente || '-'}
+                        </td>
+
+                        {/* Contatti */}
+                        <td className="px-3 py-2 text-xs">
+                          {c.email && (
+                            <div className="text-slate-800 dark:text-slate-100">
+                              {c.email}
+                            </div>
+                          )}
+                          {c.telefono && (
+                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
+                              Tel: {c.telefono}
+                            </div>
+                          )}
+                          {(c as any).pec && (
+                            <div className="mt-1 inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-200">
+                              PEC attiva
+                            </div>
+                          )}
+                          {!c.email && !c.telefono && !(c as any).pec && (
+                            <span>-</span>
+                          )}
+                        </td>
+
+                        {/* Azioni */}
+                        <td
+                          className="px-3 py-2 text-right"
+                          onClick={(e) => e.stopPropagation()}
                         >
-                          Elimina
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteCliente(c)}
+                            className="rounded-full border border-rose-200 px-3 py-1 text-[10px] font-semibold text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/60"
+                          >
+                            Elimina
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

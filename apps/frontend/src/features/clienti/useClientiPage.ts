@@ -25,27 +25,28 @@ export function useClientiPage() {
   const isEditing = editingId !== null;
 
   const totalClienti = clienti.length;
+
   const { success: toastSuccess, error: toastError } = useToast();
 
   // ===========================
   // LOAD CLIENTI
   // ===========================
   useEffect(() => {
-      const load = async () => {
-        try {
-          setLoading(true);
-          const data = await fetchClienti();
-          setClienti(data);
-        } catch (e: any) {
-          const msg = e.message ?? 'Errore nel recupero dei clienti';
-          setError(msg);
-          toastError(msg, 'Errore caricamento clienti');
-        } finally {
-          setLoading(false);
-        }
-      };
+    const load = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchClienti();
+        setClienti(data);
+      } catch (e: any) {
+        const msg = e.message ?? 'Errore nel recupero dei clienti';
+        setError(msg);
+        toastError(msg, 'Errore caricamento clienti');
+      } finally {
+        setLoading(false);
+      }
+    };
 
-      load();
+    load();
   }, [toastError]);
 
   // ===========================
@@ -64,7 +65,7 @@ export function useClientiPage() {
     setError(null);
   };
 
-    const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!form.ragioneSociale.trim()) {
@@ -123,27 +124,38 @@ export function useClientiPage() {
     }
   };
 
-
   // ===========================
   // SELEZIONE & DELETE
   // ===========================
   const handleSelectCliente = (cliente: Cliente) => {
+    const anyCliente = cliente as any;
+
     setEditingId(cliente.id);
     setForm({
       ragioneSociale: cliente.ragioneSociale ?? '',
       partitaIva: cliente.partitaIva ?? '',
+
+      sedeLegale: anyCliente.sedeLegale ?? '',
+      sedeOperativa: anyCliente.sedeOperativa ?? '',
+
       indirizzo: cliente.indirizzo ?? '',
       cap: cliente.cap ?? '',
       citta: cliente.citta ?? '',
       provincia: cliente.provincia ?? '',
       nazione: cliente.nazione ?? 'IT',
+
+      tipologia: anyCliente.tipologia ?? '',
+      referente: anyCliente.referente ?? '',
+
       telefono: cliente.telefono ?? '',
       email: cliente.email ?? '',
+      pec: anyCliente.pec ?? '',
     });
+
     setError(null);
   };
 
-    const handleDeleteCliente = async (cliente: Cliente) => {
+  const handleDeleteCliente = async (cliente: Cliente) => {
     const conferma = window.confirm(
       `Eliminare il cliente "${cliente.ragioneSociale}"?`,
     );
@@ -169,7 +181,6 @@ export function useClientiPage() {
       toastError(msg, 'Errore eliminazione');
     }
   };
-
 
   return {
     // state

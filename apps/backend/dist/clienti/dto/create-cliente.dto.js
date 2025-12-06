@@ -15,13 +15,18 @@ class CreateClienteDto {
     ragioneSociale;
     codiceFiscale;
     partitaIva;
+    sedeLegale;
+    sedeOperativa;
     indirizzo;
     cap;
     citta;
     provincia;
     nazione;
+    tipologia;
+    referente;
     telefono;
     email;
+    pec;
 }
 exports.CreateClienteDto = CreateClienteDto;
 __decorate([
@@ -44,10 +49,21 @@ __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
+], CreateClienteDto.prototype, "sedeLegale", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateClienteDto.prototype, "sedeOperativa", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
 ], CreateClienteDto.prototype, "indirizzo", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Length)(0, 5),
     __metadata("design:type", String)
 ], CreateClienteDto.prototype, "cap", void 0);
 __decorate([
@@ -58,6 +74,7 @@ __decorate([
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
+    (0, class_validator_1.Length)(0, 2),
     __metadata("design:type", String)
 ], CreateClienteDto.prototype, "provincia", void 0);
 __decorate([
@@ -65,6 +82,25 @@ __decorate([
     (0, class_validator_1.IsString)(),
     __metadata("design:type", String)
 ], CreateClienteDto.prototype, "nazione", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsIn)([
+        'impresa_individuale',
+        'impresa_individuale_agricola',
+        'srl',
+        'spa',
+        'scpa',
+        'srl_agricola',
+        'snc',
+        'sas',
+    ]),
+    __metadata("design:type", String)
+], CreateClienteDto.prototype, "tipologia", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], CreateClienteDto.prototype, "referente", void 0);
 __decorate([
     (0, class_validator_1.IsOptional)(),
     (0, class_validator_1.IsString)(),
@@ -75,4 +111,9 @@ __decorate([
     (0, class_validator_1.IsEmail)(),
     __metadata("design:type", String)
 ], CreateClienteDto.prototype, "email", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsEmail)(),
+    __metadata("design:type", String)
+], CreateClienteDto.prototype, "pec", void 0);
 //# sourceMappingURL=create-cliente.dto.js.map

@@ -1,18 +1,39 @@
+export type TipologiaAzienda =
+  | 'impresa_individuale'
+  | 'impresa_individuale_agricola'
+  | 'srl'
+  | 'spa'
+  | 'scpa'
+  | 'srl_agricola'
+  | 'snc'
+  | 'sas';
+
 export interface Cliente {
   id: string;
   ragioneSociale: string;
   codiceFiscale?: string;
   partitaIva?: string;
+
+  sedeLegale?: string;
+  sedeOperativa?: string;
+
   indirizzo?: string;
   cap?: string;
   citta?: string;
   provincia?: string;
   nazione?: string;
+
+  tipologia?: TipologiaAzienda;
+  referente?: string;
+
   telefono?: string;
   email?: string;
+  pec?: string;
+
   createdAt: string;
   updatedAt: string;
 }
+
 
 const API_BASE_URL = 'http://localhost:3000';
 
