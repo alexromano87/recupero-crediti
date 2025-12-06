@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import type { Cliente } from '../api/clienti';
 import { fetchClienti, createCliente } from '../api/clienti';
+import { ChevronDown } from 'lucide-react';
 
 export function ClientiPage() {
   const [clienti, setClienti] = useState<Cliente[]>([]);
@@ -117,7 +118,7 @@ export function ClientiPage() {
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)]">
         {/* FORM */}
         <section className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-lg shadow-slate-300/40 dark:border-slate-800 dark:bg-slate-950/60 dark:shadow-black/40">
-          <h3 className="mb-3 text-sm font-semibold text-slate-50">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
             Nuovo cliente
           </h3>
           <form
@@ -128,13 +129,13 @@ export function ClientiPage() {
               <label className="block text-[11px] font-medium text-slate-400">
                 Ragione sociale*
               </label>
-              <input
+              <input 
                 type="text"
                 name="ragioneSociale"
                 value={form.ragioneSociale}
                 onChange={handleChange}
                 required
-                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900/80 px-2 py-1.5 text-xs text-slate-50 shadow-inner shadow-black/40 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-900 shadow-inner shadow-slate-200/60 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-50 dark:shadow-black/40"
               />
             </div>
 
@@ -148,7 +149,7 @@ export function ClientiPage() {
                   name="partitaIva"
                   value={form.partitaIva}
                   onChange={handleChange}
-                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900/80 px-2 py-1.5 text-xs text-slate-50 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-900 shadow-inner shadow-slate-200/60 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-50 dark:shadow-black/40"
                 />
               </div>
               <div>
@@ -160,7 +161,7 @@ export function ClientiPage() {
                   name="telefono"
                   value={form.telefono}
                   onChange={handleChange}
-                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900/80 px-2 py-1.5 text-xs text-slate-50 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-900 shadow-inner shadow-slate-200/60 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-50 dark:shadow-black/40"
                 />
               </div>
               <div>
@@ -172,7 +173,7 @@ export function ClientiPage() {
                   name="email"
                   value={form.email}
                   onChange={handleChange}
-                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900/80 px-2 py-1.5 text-xs text-slate-50 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-900 shadow-inner shadow-slate-200/60 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-50 dark:shadow-black/40"
                 />
               </div>
             </div>
@@ -186,7 +187,7 @@ export function ClientiPage() {
                 name="indirizzo"
                 value={form.indirizzo}
                 onChange={handleChange}
-                className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900/80 px-2 py-1.5 text-xs text-slate-50 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-900 shadow-inner shadow-slate-200/60 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-50 dark:shadow-black/40"
               />
             </div>
 
@@ -200,7 +201,7 @@ export function ClientiPage() {
                   name="cap"
                   value={form.cap}
                   onChange={handleChange}
-                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900/80 px-2 py-1.5 text-xs text-slate-50 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-900 shadow-inner shadow-slate-200/60 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-50 dark:shadow-black/40"
                 />
               </div>
               <div className="sm:col-span-2">
@@ -212,7 +213,7 @@ export function ClientiPage() {
                   name="citta"
                   value={form.citta}
                   onChange={handleChange}
-                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900/80 px-2 py-1.5 text-xs text-slate-50 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-900 shadow-inner shadow-slate-200/60 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-50 dark:shadow-black/40"
                 />
               </div>
               <div>
@@ -224,28 +225,35 @@ export function ClientiPage() {
                   name="provincia"
                   value={form.provincia}
                   onChange={handleChange}
-                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900/80 px-2 py-1.5 text-xs text-slate-50 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="mt-1 w-full rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-900 shadow-inner shadow-slate-200/60 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-50 dark:shadow-black/40"
                 />
               </div>
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
-              <div>
-                <label className="block text-[11px] font-medium text-slate-400">
-                  Nazione
-                </label>
+            <div>
+              <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                Nazione
+              </label>
+
+              <div className="relative mt-1">
                 <select
                   name="nazione"
                   value={form.nazione}
                   onChange={handleChange}
-                  className="mt-1 w-full rounded-md border border-slate-700 bg-slate-900/80 px-2 py-1.5 text-xs text-slate-50 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="w-full appearance-none rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 pr-7 text-xs text-slate-900 shadow-inner shadow-slate-200/60 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-slate-700 dark:bg-slate-900/80 dark:text-slate-50 dark:shadow-black/40"
                 >
                   <option value="IT">Italia</option>
                   <option value="CH">Svizzera</option>
                   <option value="DE">Germania</option>
                 </select>
+
+                {/* Icona freccia custom */}
+                <ChevronDown
+                  className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-slate-400 dark:text-slate-500"
+                />
               </div>
             </div>
+
 
             <div className="mt-1 flex justify-end">
               <button
@@ -259,12 +267,13 @@ export function ClientiPage() {
         </section>
 
         {/* LISTA CLIENTI */}
-        <section className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-lg shadow-slate-300/40 dark:border-slate-800 dark:bg-slate-950/60 dark:shadow-black/40">
+                {/* LISTA CLIENTI */}
+        <section className="rounded-2xl border border-slate-200 bg-white/95 p-4 shadow-lg shadow-slate-300/40 transition-colors duration-300 dark:border-slate-800 dark:bg-slate-950/60 dark:shadow-black/40">
           <div className="mb-3 flex items-center justify-between gap-2">
-            <h3 className="text-sm font-semibold text-slate-50">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
               Elenco clienti
             </h3>
-            <p className="text-[11px] text-slate-400">
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
               {loading
                 ? 'Caricamento in corso...'
                 : clienti.length === 0
@@ -274,27 +283,29 @@ export function ClientiPage() {
           </div>
 
           {loading ? (
-            <p className="text-xs text-slate-400">Caricamento…</p>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Caricamento…
+            </p>
           ) : clienti.length === 0 ? (
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Non ci sono ancora clienti. Utilizza il form a sinistra per
               aggiungerne uno.
             </p>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-slate-800 bg-slate-950/80">
-              <table className="min-w-full border-collapse text-xs text-slate-100">
-                <thead className="bg-slate-900/80">
+            <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-50/80 shadow-sm shadow-slate-200/70 transition-colors duration-300 dark:border-slate-800 dark:bg-slate-950/80 dark:shadow-black/30">
+              <table className="min-w-full border-collapse text-xs">
+                <thead className="bg-slate-100 text-slate-500 dark:bg-slate-900/80 dark:text-slate-400">
                   <tr>
-                    <th className="border-b border-slate-800 px-3 py-2 text-left font-medium text-slate-400">
+                    <th className="border-b border-slate-200 px-3 py-2 text-left font-medium">
                       Ragione sociale
                     </th>
-                    <th className="border-b border-slate-800 px-3 py-2 text-left font-medium text-slate-400">
+                    <th className="border-b border-slate-200 px-3 py-2 text-left font-medium">
                       P. IVA
                     </th>
-                    <th className="border-b border-slate-800 px-3 py-2 text-left font-medium text-slate-400">
+                    <th className="border-b border-slate-200 px-3 py-2 text-left font-medium">
                       Città
                     </th>
-                    <th className="border-b border-slate-800 px-3 py-2 text-left font-medium text-slate-400">
+                    <th className="border-b border-slate-200 px-3 py-2 text-left font-medium">
                       Email
                     </th>
                   </tr>
@@ -303,24 +314,25 @@ export function ClientiPage() {
                   {clienti.map((c, idx) => (
                     <tr
                       key={c.id}
-                      className={
+                      className={[
+                        'border-b border-slate-100 text-slate-700 transition-colors duration-200 hover:bg-slate-100/80 dark:border-slate-900 dark:text-slate-100 dark:hover:bg-slate-900/60',
                         idx % 2 === 0
-                          ? 'bg-slate-950/50'
-                          : 'bg-slate-900/50'
-                      }
+                          ? 'bg-white dark:bg-slate-950/40'
+                          : 'bg-slate-50/80 dark:bg-slate-900/40',
+                      ].join(' ')}
                     >
-                      <td className="border-b border-slate-900 px-3 py-2">
-                        <div className="font-medium text-slate-50">
+                      <td className="px-3 py-2">
+                        <div className="font-medium">
                           {c.ragioneSociale}
                         </div>
                       </td>
-                      <td className="border-b border-slate-900 px-3 py-2 text-slate-300">
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
                         {c.partitaIva || '-'}
                       </td>
-                      <td className="border-b border-slate-900 px-3 py-2 text-slate-300">
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
                         {c.citta || '-'}
                       </td>
-                      <td className="border-b border-slate-900 px-3 py-2 text-slate-300">
+                      <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
                         {c.email || '-'}
                       </td>
                     </tr>
@@ -330,6 +342,7 @@ export function ClientiPage() {
             </div>
           )}
         </section>
+
       </div>
     </div>
   );

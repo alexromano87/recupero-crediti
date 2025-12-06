@@ -12,3 +12,13 @@ button,
 textarea {
   @apply outline-none;
 }
+
+/* Transizione morbida tra temi */
+html.theme-transition *,
+html.theme-transition *::before,
+html.theme-transition *::after {
+  transition-property: background-color, border-color, color, fill, stroke,
+    box-shadow;
+  transition-duration: 250ms;
+  transition-timing-function: ease-in-out;
+}

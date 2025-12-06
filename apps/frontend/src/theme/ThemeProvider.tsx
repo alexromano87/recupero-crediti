@@ -28,15 +28,17 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     const stored = window.localStorage.getItem(STORAGE_KEY);
     if (stored === 'light' || stored === 'dark') return stored as Theme;
 
-    // fallback: preferenza di sistema
     const prefersLight = window.matchMedia?.(
       '(prefers-color-scheme: light)',
     ).matches;
     return prefersLight ? 'light' : 'dark';
   });
 
+  // Applica la classe `dark` sull'html
   useEffect(() => {
-    const root = document.documentElement; // <html>
+    if (typeof window === 'undefined') return;
+
+    const root = document.documentElement;
 
     if (theme === 'dark') {
       root.classList.add('dark');
@@ -47,8 +49,19 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     window.localStorage.setItem(STORAGE_KEY, theme);
   }, [theme]);
 
-  const toggleTheme = () =>
+  // Abilita transizione morbida solo durante lo switch
+  const enableTransition = () => {
+    const root = document.documentElement;
+    root.classList.add('theme-transition');
+    window.setTimeout(() => {
+      root.classList.remove('theme-transition');
+    }, 300);
+  };
+
+  const toggleTheme = () => {
+    enableTransition();
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
