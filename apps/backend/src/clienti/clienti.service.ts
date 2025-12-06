@@ -17,25 +17,27 @@ export class ClientiService {
     return this.repo.save(cliente);
   }
 
-  findAll() {
+  async findAll() {
     return this.repo.find({
       order: { createdAt: 'DESC' },
     });
   }
 
-  findOne(id: string) {
-    return this.repo.findOne({ where: { id } });
+  async findOne(id: string) {
+    return this.repo.findOne({
+      where: { id },
+    });
   }
 
   async update(id: string, data: UpdateClienteDto) {
     await this.repo.update({ id }, data);
-    return this.findOne(id);
+    return this.findOne(id); // ritorna il record aggiornato
   }
 
   async remove(id: string) {
     const cliente = await this.findOne(id);
     if (!cliente) return null;
     await this.repo.delete({ id });
-    return cliente;
+    return cliente; // opzionale, ma utile per logging o conferma
   }
 }

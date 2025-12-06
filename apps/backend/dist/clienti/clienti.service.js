@@ -26,13 +26,15 @@ let ClientiService = class ClientiService {
         const cliente = this.repo.create(data);
         return this.repo.save(cliente);
     }
-    findAll() {
+    async findAll() {
         return this.repo.find({
             order: { createdAt: 'DESC' },
         });
     }
-    findOne(id) {
-        return this.repo.findOne({ where: { id } });
+    async findOne(id) {
+        return this.repo.findOne({
+            where: { id },
+        });
     }
     async update(id, data) {
         await this.repo.update({ id }, data);

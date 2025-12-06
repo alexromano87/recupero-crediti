@@ -7,11 +7,13 @@ import {
   FileText,
   Search,
   Bell,
+  MessageSquare,
   Settings,
   LogOut,
   Moon,
   Sun,
 } from 'lucide-react';
+
 import { useTheme } from '../theme/ThemeProvider';
 
 interface AppLayoutProps {
@@ -23,8 +25,11 @@ const mainNav = [
   { path: '/clienti', label: 'Clienti', icon: Users },
   { path: '/debitori', label: 'Debitori', icon: Building2 },
   { path: '/pratiche', label: 'Pratiche', icon: FileText },
-  { path: '/ricerca', label: 'Ricerca avanzata', icon: Search },
+  { path: '/alert', label: 'Alert & scadenze', icon: Bell },
+  { path: '/ticket', label: 'Ticket clienti', icon: MessageSquare },
+  { path: '/ricerca', label: 'Report & ricerca', icon: Search },
 ];
+
 
 export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();

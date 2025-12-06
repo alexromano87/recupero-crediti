@@ -24,8 +24,10 @@ export async function fetchClienti(): Promise<Cliente[]> {
   return res.json();
 }
 
+type ClientePayload = Omit<Cliente, 'id' | 'createdAt' | 'updatedAt'>;
+
 export async function createCliente(
-  data: Omit<Cliente, 'id' | 'createdAt' | 'updatedAt'>,
+  data: ClientePayload,
 ): Promise<Cliente> {
   const res = await fetch(`${API_BASE_URL}/clienti`, {
     method: 'POST',
@@ -39,4 +41,33 @@ export async function createCliente(
   }
 
   return res.json();
+}
+
+export async function updateCliente(
+  id: string,
+  data: Partial<ClientePayload>,
+): Promise<Cliente> {
+  const res = await fetch(`${API_BASE_URL}/clienti/${id}`, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Errore aggiornamento cliente: ${text}`);
+  }
+
+  return res.json();
+}
+
+export async function deleteCliente(id: string): Promise<void> {
+  const res = await fetch(`${API_BASE_URL}/clienti/${id}`, {
+    method: 'DELETE',
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Errore eliminazione cliente: ${text}`);
+  }
 }
