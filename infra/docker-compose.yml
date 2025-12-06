@@ -1,0 +1,23 @@
+version: "3.9"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: rc-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: recupero_crediti
+      MYSQL_USER: rc_user
+      MYSQL_PASSWORD: rc_pass
+    ports:
+      - "3307:3306"   # fuori:3307, dentro:3306
+    volumes:
+      - ./db/data:/var/lib/mysql
+
+  adminer:
+    image: adminer
+    container_name: rc-adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
