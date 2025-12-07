@@ -264,6 +264,7 @@ export function ClientiPage() {
 
   // --- Disattivazione cliente (soft-delete) ---
   const handleDeactivate = async (cliente: Cliente) => {
+<<<<<<< HEAD
     const conferma = await confirm({
       title: 'Disattivare cliente?',
       message: (
@@ -279,6 +280,11 @@ export function ClientiPage() {
       cancelText: 'Annulla',
       variant: 'warning',
     });
+=======
+    const conferma = window.confirm(
+      `Disattivare il cliente "${cliente.ragioneSociale}"?\n\nIl cliente non sarà più visibile nella lista principale ma potrà essere riattivato.`,
+    );
+>>>>>>> 9bfb883 (aggiunta funzione attiva/disattiva cliente)
     if (!conferma) return;
 
     try {
@@ -304,6 +310,7 @@ export function ClientiPage() {
 
   // --- Riattivazione cliente ---
   const handleReactivate = async (cliente: Cliente) => {
+<<<<<<< HEAD
     const conferma = await confirm({
       title: 'Riattivare cliente?',
       message: (
@@ -321,6 +328,8 @@ export function ClientiPage() {
     });
     if (!conferma) return;
 
+=======
+>>>>>>> 9bfb883 (aggiunta funzione attiva/disattiva cliente)
     try {
       const updated = await reactivateCliente(cliente.id);
       setClienti((prev) =>
