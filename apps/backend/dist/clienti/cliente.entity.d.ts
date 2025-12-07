@@ -4,6 +4,7 @@ export declare class Cliente {
     id: string;
     createdAt: Date;
     updatedAt: Date;
+    attivo: boolean;
     ragioneSociale: string;
     codiceFiscale?: string;
     partitaIva?: string;

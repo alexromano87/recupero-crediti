@@ -26,6 +26,10 @@ export class Debitore {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  // --- Stato attivo/disattivato (soft-delete) ---
+  @Column({ default: true })
+  attivo: boolean;
+
   @Column({ type: 'varchar', length: 20 })
   tipoSoggetto: TipoSoggetto;
 

@@ -23,6 +23,34 @@ export class ClientiDebitoriService {
     return links.map((l) => l.debitore);
   }
 
+  /**
+   * Collega un singolo debitore a un cliente.
+   * Se il link esiste già (anche se disattivato), lo riattiva.
+   */
+  async linkDebitoreToCliente(
+    clienteId: string,
+    debitoreId: string,
+  ): Promise<void> {
+    const existing = await this.cdRepo.findOne({
+      where: { clienteId, debitoreId },
+    });
+
+    if (existing) {
+      if (!existing.attivo) {
+        existing.attivo = true;
+        await this.cdRepo.save(existing);
+      }
+      // Se già attivo, non fare nulla
+    } else {
+      const link = this.cdRepo.create({
+        clienteId,
+        debitoreId,
+        attivo: true,
+      });
+      await this.cdRepo.save(link);
+    }
+  }
+
   async setDebitoriForCliente(
     clienteId: string,
     debitoriIds: string[],
@@ -69,5 +97,15 @@ export class ClientiDebitoriService {
     debitoreId: string,
   ): Promise<void> {
     await this.cdRepo.update({ clienteId, debitoreId }, { attivo: false });
+  }
+
+  /**
+   * Restituisce tutti i clienti collegati a un debitore.
+   */
+  async getClientiByDebitore(debitoreId: string): Promise<string[]> {
+    const links = await this.cdRepo.find({
+      where: { debitoreId, attivo: true },
+    });
+    return links.map((l) => l.clienteId);
   }
 }

@@ -1,3 +1,6 @@
+// src/api/clienti.ts
+import { api } from './config';
+
 export type TipologiaAzienda =
   | 'impresa_individuale'
   | 'impresa_individuale_agricola'
@@ -30,65 +33,54 @@ export interface Cliente {
   email?: string;
   pec?: string;
 
+  attivo: boolean;
+
   createdAt: string;
   updatedAt: string;
 }
 
+export type ClientePayload = Omit<Cliente, 'id' | 'createdAt' | 'updatedAt' | 'attivo'>;
 
-const API_BASE_URL = 'http://localhost:3000';
+// ====== CRUD Clienti ======
 
-export async function fetchClienti(): Promise<Cliente[]> {
-  const res = await fetch(`${API_BASE_URL}/clienti`);
-  if (!res.ok) {
-    throw new Error('Errore nel recupero dei clienti');
-  }
-  return res.json();
+export function fetchClienti(includeInactive = false): Promise<Cliente[]> {
+  const params = includeInactive ? { includeInactive: 'true' } : undefined;
+  return api.get<Cliente[]>('/clienti', params);
 }
 
-type ClientePayload = Omit<Cliente, 'id' | 'createdAt' | 'updatedAt'>;
-
-export async function createCliente(
-  data: ClientePayload,
-): Promise<Cliente> {
-  const res = await fetch(`${API_BASE_URL}/clienti`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Errore creazione cliente: ${text}`);
-  }
-
-  return res.json();
+export function fetchCliente(id: string): Promise<Cliente> {
+  return api.get<Cliente>(`/clienti/${id}`);
 }
 
-export async function updateCliente(
+export function createCliente(data: ClientePayload): Promise<Cliente> {
+  return api.post<Cliente>('/clienti', data);
+}
+
+export function updateCliente(
   id: string,
   data: Partial<ClientePayload>,
 ): Promise<Cliente> {
-  const res = await fetch(`${API_BASE_URL}/clienti/${id}`, {
-    method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Errore aggiornamento cliente: ${text}`);
-  }
-
-  return res.json();
+  return api.put<Cliente>(`/clienti/${id}`, data);
 }
 
-export async function deleteCliente(id: string): Promise<void> {
-  const res = await fetch(`${API_BASE_URL}/clienti/${id}`, {
-    method: 'DELETE',
-  });
+export function deleteCliente(id: string): Promise<Cliente> {
+  return api.delete<Cliente>(`/clienti/${id}`);
+}
 
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Errore eliminazione cliente: ${text}`);
-  }
+// ====== Soft-delete ======
+
+export function deactivateCliente(id: string): Promise<Cliente> {
+  return api.patch<Cliente>(`/clienti/${id}/deactivate`);
+}
+
+export function reactivateCliente(id: string): Promise<Cliente> {
+  return api.patch<Cliente>(`/clienti/${id}/reactivate`);
+}
+
+// ====== Pratiche count ======
+
+export function fetchPraticheCountForCliente(
+  id: string,
+): Promise<{ count: number }> {
+  return api.get<{ count: number }>(`/clienti/${id}/pratiche-count`);
 }
