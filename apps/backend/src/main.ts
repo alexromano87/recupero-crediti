@@ -1,22 +1,35 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
+import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+  const configService = app.get(ConfigService);
 
   app.enableCors({
-    origin: 'http://localhost:5173', // frontend Vite
+    origin: configService.get<string>('FRONTEND_URL', 'http://localhost:5173'),
+    credentials: true,
   });
 
+  // Validazione globale con trasformazione automatica dei tipi
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
+      whitelist: true,  // rimuove campi non definiti nei DTO
+      forbidNonWhitelisted: true,  // errore se ci sono campi extra
+      transform: true, // trasforma i payload nei tipi definiti nei DTO
+      transformOptions: {
+        enableImplicitConversion: true, // converte tipi primitivi automaticamente
+      },
     }),
   );
 
-  await app.listen(3000);
+  const port = configService.get<number>('PORT', 3000);
+  await app.listen(port);
+
+  console.log(`🚀 Backend running on http://localhost:${port}`);
+  console.log(
+    `📦 Environment: ${configService.get<string>('NODE_ENV', 'development')}`,
+  );
 }
 bootstrap();

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Building2, Plus, Trash2, Pencil } from 'lucide-react';
+import { Building2, Plus, Trash2 } from 'lucide-react';
 import type { Cliente } from '../api/clienti';
 import {
   fetchClienti,
@@ -65,9 +65,13 @@ export function ClientiPage() {
   const [saving, setSaving] = useState(false);
 
   const [showForm, setShowForm] = useState(false);
+  const [isEditing, setIsEditing] = useState(false); // <-- nuova logica
 
   const selectedCliente =
     clienti.find((c) => c.id === selectedClienteId) ?? null;
+
+  const isNew = !selectedClienteId; // true se sto creando
+  const isFormReadOnly = !!selectedClienteId && !isEditing;
 
   // --- Caricamento iniziale clienti ---
   useEffect(() => {
@@ -96,10 +100,12 @@ export function ClientiPage() {
     setSelectedClienteId(null);
     setForm(EMPTY_FORM);
     setError(null);
+    setIsEditing(false);
   };
 
   const handleNewCliente = () => {
     resetForm();
+    setIsEditing(true); // nuovo cliente: subito in modifica
     setShowForm(true);
   };
 
@@ -107,6 +113,7 @@ export function ClientiPage() {
     setSelectedClienteId(cliente.id);
     setForm(clienteToFormState(cliente));
     setShowForm(true);
+    setIsEditing(false); // view mode: campi bloccati
     setError(null);
   };
 
@@ -120,6 +127,7 @@ export function ClientiPage() {
   // --- Submit form (create/update) ---
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
     if (!form.ragioneSociale.trim()) {
       const msg = 'La ragione sociale è obbligatoria.';
       setError(msg);
@@ -142,27 +150,29 @@ export function ClientiPage() {
         nazione: form.nazione.trim() || undefined,
         telefono: form.telefono.trim() || undefined,
         email: form.email.trim() || undefined,
-        // altri campi opzionali presenti in ClientePayload,
-        // se ti servono, aggiungili qui
       };
 
       let saved: Cliente;
 
-      if (selectedClienteId) {
-        saved = await updateCliente(selectedClienteId, payload as any);
+      if (isNew) {
+        // CREAZIONE
+        saved = await createCliente(payload as any);
+        setClienti((prev) => [saved, ...prev]);
+        toastSuccess('Cliente creato correttamente', 'Operazione riuscita');
+      } else {
+        // UPDATE
+        saved = await updateCliente(selectedClienteId as string, payload as any);
         setClienti((prev) =>
           prev.map((c) => (c.id === saved.id ? saved : c)),
         );
         toastSuccess('Cliente aggiornato correttamente', 'Operazione riuscita');
-      } else {
-        saved = await createCliente(payload as any);
-        setClienti((prev) => [saved, ...prev]);
-        toastSuccess('Cliente creato correttamente', 'Operazione riuscita');
       }
 
       setSelectedClienteId(saved.id);
       setForm(clienteToFormState(saved));
-      // se vuoi chiudere il form dopo il salvataggio: setShowForm(false);
+      setIsEditing(false); // dopo il salvataggio torno in view mode
+      // se vuoi chiudere il form dopo il salvataggio:
+      // setShowForm(false);
     } catch (err: any) {
       console.error(err);
       const msg = err?.message || 'Errore durante il salvataggio del cliente';
@@ -184,8 +194,7 @@ export function ClientiPage() {
       await deleteCliente(cliente.id);
       setClienti((prev) => prev.filter((c) => c.id !== cliente.id));
       if (selectedClienteId === cliente.id) {
-        setSelectedClienteId(null);
-        setForm(EMPTY_FORM);
+        resetForm();
         setShowForm(false);
       }
       toastSuccess('Cliente eliminato', 'Operazione riuscita');
@@ -195,6 +204,38 @@ export function ClientiPage() {
         err?.message || 'Errore durante l’eliminazione del cliente';
       setError(msg);
       toastError(msg, 'Errore eliminazione');
+    }
+  };
+
+  // --- Etichette bottoni form ---
+  const primaryLabel = isNew
+    ? saving
+      ? 'Salvataggio...'
+      : 'Crea cliente'
+    : isEditing
+    ? saving
+      ? 'Salvataggio...'
+      : 'Salva modifiche'
+    : 'Modifica';
+
+  const secondaryLabel = isNew
+    ? 'Annulla'
+    : isEditing
+    ? 'Annulla modifiche'
+    : 'Chiudi';
+
+  const handleSecondaryClick = () => {
+    if (isNew) {
+      // nuovo cliente: chiudo e pulisco
+      resetForm();
+      setShowForm(false);
+    } else if (isEditing) {
+      // annulla modifiche: ripristino dati originali
+      if (selectedCliente) setForm(clienteToFormState(selectedCliente));
+      setIsEditing(false);
+    } else {
+      // solo chiudi vista
+      setShowForm(false);
     }
   };
 
@@ -210,21 +251,9 @@ export function ClientiPage() {
             Clienti
           </h1>
           <p className="max-w-xl text-xs text-slate-500 dark:text-slate-400">
-            Gestisci l&apos;anagrafica clienti. Il form di creazione /
-            modifica compare solo quando inserisci un nuovo cliente o ne
-            selezioni uno dalla lista.
+            Clicca su un cliente per vederne il dettaglio. I campi diventano
+            modificabili solo dopo aver premuto il pulsante &quot;Modifica&quot;.
           </p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={handleNewCliente}
-            className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-medium text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 dark:bg-indigo-500 dark:hover:bg-indigo-400"
-          >
-            <Plus className="h-3 w-3" />
-            Nuovo cliente
-          </button>
         </div>
       </div>
 
@@ -236,7 +265,7 @@ export function ClientiPage() {
 
       {/* CONTENUTO: FORM + LISTA CON TRANSIZIONE */}
       <div className="mt-2 flex flex-col gap-4 md:flex-row md:items-start transition-all duration-300 ease-out">
-        {/* FORM CLIENTE (sempre montato, ma collassato quando showForm = false) */}
+        {/* FORM CLIENTE */}
         <section
           className={
             'rounded-2xl border border-slate-200 bg-white/90 text-xs shadow-sm shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-950/80 dark:shadow-black/40 overflow-hidden transition-all duration-300 ease-out ' +
@@ -247,17 +276,17 @@ export function ClientiPage() {
         >
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2 dark:border-slate-800">
             <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-              {selectedCliente ? 'Modifica cliente' : 'Nuovo cliente'}
+              {selectedCliente ? 'Dettaglio cliente' : 'Nuovo cliente'}
             </h3>
             <button
               type="button"
               onClick={() => {
                 setShowForm(false);
-                // se vuoi, anche resetForm() qui
+                if (isNew) resetForm();
               }}
               className="text-[11px] font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
             >
-              Annulla
+              Chiudi
             </button>
           </div>
 
@@ -272,7 +301,8 @@ export function ClientiPage() {
                   type="text"
                   value={form.ragioneSociale}
                   onChange={handleFormChange('ragioneSociale')}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-indigo-400 dark:focus:ring-indigo-500/30"
+                  disabled={isFormReadOnly}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:cursor-default disabled:bg-slate-50 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:disabled:bg-slate-900 dark:disabled:text-slate-500 dark:focus:border-indigo-400 dark:focus:ring-indigo-500/30"
                 />
               </div>
 
@@ -286,7 +316,8 @@ export function ClientiPage() {
                     type="text"
                     value={form.codiceFiscale}
                     onChange={handleFormChange('codiceFiscale')}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+                    disabled={isFormReadOnly}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs disabled:cursor-default disabled:bg-slate-50 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:disabled:bg-slate-900 dark:disabled:text-slate-500"
                   />
                 </div>
                 <div>
@@ -297,7 +328,8 @@ export function ClientiPage() {
                     type="text"
                     value={form.partitaIva}
                     onChange={handleFormChange('partitaIva')}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+                    disabled={isFormReadOnly}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs disabled:cursor-default disabled:bg-slate-50 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:disabled:bg-slate-900 dark:disabled:text-slate-500"
                   />
                 </div>
               </div>
@@ -311,7 +343,8 @@ export function ClientiPage() {
                   type="text"
                   value={form.indirizzo}
                   onChange={handleFormChange('indirizzo')}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+                  disabled={isFormReadOnly}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs disabled:cursor-default disabled:bg-slate-50 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:disabled:bg-slate-900 dark:disabled:text-slate-500"
                 />
               </div>
 
@@ -324,7 +357,8 @@ export function ClientiPage() {
                     type="text"
                     value={form.cap}
                     onChange={handleFormChange('cap')}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+                    disabled={isFormReadOnly}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs disabled:cursor-default disabled:bg-slate-50 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:disabled:bg-slate-900 dark:disabled:text-slate-500"
                   />
                 </div>
                 <div>
@@ -335,7 +369,8 @@ export function ClientiPage() {
                     type="text"
                     value={form.citta}
                     onChange={handleFormChange('citta')}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+                    disabled={isFormReadOnly}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs disabled:cursor-default disabled:bg-slate-50 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:disabled:bg-slate-900 dark:disabled:text-slate-500"
                   />
                 </div>
                 <div>
@@ -346,7 +381,8 @@ export function ClientiPage() {
                     type="text"
                     value={form.provincia}
                     onChange={handleFormChange('provincia')}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+                    disabled={isFormReadOnly}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs disabled:cursor-default disabled:bg-slate-50 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:disabled:bg-slate-900 dark:disabled:text-slate-500"
                   />
                 </div>
               </div>
@@ -359,7 +395,8 @@ export function ClientiPage() {
                   type="text"
                   value={form.nazione}
                   onChange={handleFormChange('nazione')}
-                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+                  disabled={isFormReadOnly}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs disabled:cursor-default disabled:bg-slate-50 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:disabled:bg-slate-900 dark:disabled:text-slate-500"
                 />
               </div>
 
@@ -373,7 +410,8 @@ export function ClientiPage() {
                     type="text"
                     value={form.telefono}
                     onChange={handleFormChange('telefono')}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+                    disabled={isFormReadOnly}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs disabled:cursor-default disabled:bg-slate-50 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:disabled:bg-slate-900 dark:disabled:text-slate-500"
                   />
                 </div>
                 <div>
@@ -384,7 +422,8 @@ export function ClientiPage() {
                     type="email"
                     value={form.email}
                     onChange={handleFormChange('email')}
-                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+                    disabled={isFormReadOnly}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs disabled:cursor-default disabled:bg-slate-50 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:disabled:bg-slate-900 dark:disabled:text-slate-500"
                   />
                 </div>
               </div>
@@ -392,24 +431,26 @@ export function ClientiPage() {
               <div className="flex justify-end gap-2 pt-1">
                 <button
                   type="button"
-                  onClick={() => {
-                    setShowForm(false);
-                    // opzionale: resetForm();
-                  }}
+                  onClick={handleSecondaryClick}
                   className="rounded-lg border border-slate-300 px-3 py-2 text-[11px] font-medium text-slate-700 hover:border-slate-400 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-100 dark:hover:border-slate-500 dark:hover:bg-slate-800"
                 >
-                  Annulla
+                  {secondaryLabel}
                 </button>
                 <button
-                  type="submit"
-                  disabled={saving}
+                  type={isNew || isEditing ? 'submit' : 'button'}
+                  disabled={saving && (isNew || isEditing)}
+                  onClick={(e) => {
+                    // caso cliente esistente in sola lettura: attivo la modifica
+                    if (!isNew && !isEditing) {
+                      e.preventDefault();
+                      setIsEditing(true);
+                    }
+                    // negli altri casi (nuovo o in editing) non faccio nulla qui:
+                    // il click viene gestito da onSubmit del form
+                  }}
                   className="rounded-lg bg-indigo-600 px-4 py-2 text-[11px] font-medium text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
                 >
-                  {saving
-                    ? 'Salvataggio...'
-                    : selectedCliente
-                    ? 'Aggiorna cliente'
-                    : 'Crea cliente'}
+                  {primaryLabel}
                 </button>
               </div>
             </form>
@@ -493,14 +534,6 @@ export function ClientiPage() {
                           className="px-3 py-2 text-right"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <button
-                            type="button"
-                            onClick={() => handleSelectCliente(c)}
-                            className="mr-2 inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
-                          >
-                            <Pencil className="h-3 w-3" />
-                            Modifica
-                          </button>
                           <button
                             type="button"
                             onClick={() => handleDelete(c)}
