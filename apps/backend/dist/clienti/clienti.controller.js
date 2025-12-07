@@ -17,13 +17,13 @@ const common_1 = require("@nestjs/common");
 const clienti_service_1 = require("./clienti.service");
 const create_cliente_dto_1 = require("./dto/create-cliente.dto");
 const update_cliente_dto_1 = require("./dto/update-cliente.dto");
+const clienti_debitori_service_1 = require("../relazioni/clienti-debitori.service");
 let ClientiController = class ClientiController {
     clientiService;
-    constructor(clientiService) {
+    clientiDebitoriService;
+    constructor(clientiService, clientiDebitoriService) {
         this.clientiService = clientiService;
-    }
-    create(dto) {
-        return this.clientiService.create(dto);
+        this.clientiDebitoriService = clientiDebitoriService;
     }
     findAll() {
         return this.clientiService.findAll();
@@ -31,21 +31,28 @@ let ClientiController = class ClientiController {
     findOne(id) {
         return this.clientiService.findOne(id);
     }
+    create(dto) {
+        return this.clientiService.create(dto);
+    }
     update(id, dto) {
         return this.clientiService.update(id, dto);
     }
     remove(id) {
         return this.clientiService.remove(id);
     }
+    getDebitoriForCliente(id) {
+        return this.clientiDebitoriService.getDebitoriByCliente(id);
+    }
+    async updateDebitoriForCliente(id, body) {
+        await this.clientiDebitoriService.setDebitoriForCliente(id, body.debitoriIds ?? []);
+        return { success: true };
+    }
+    async unlinkDebitore(id, debitoreId) {
+        await this.clientiDebitoriService.unlinkDebitoreFromCliente(id, debitoreId);
+        return { success: true };
+    }
 };
 exports.ClientiController = ClientiController;
-__decorate([
-    (0, common_1.Post)(),
-    __param(0, (0, common_1.Body)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [create_cliente_dto_1.CreateClienteDto]),
-    __metadata("design:returntype", void 0)
-], ClientiController.prototype, "create", null);
 __decorate([
     (0, common_1.Get)(),
     __metadata("design:type", Function),
@@ -59,6 +66,13 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], ClientiController.prototype, "findOne", null);
+__decorate([
+    (0, common_1.Post)(),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [create_cliente_dto_1.CreateClienteDto]),
+    __metadata("design:returntype", void 0)
+], ClientiController.prototype, "create", null);
 __decorate([
     (0, common_1.Put)(':id'),
     __param(0, (0, common_1.Param)('id')),
@@ -74,8 +88,32 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], ClientiController.prototype, "remove", null);
+__decorate([
+    (0, common_1.Get)(':id/debitori'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], ClientiController.prototype, "getDebitoriForCliente", null);
+__decorate([
+    (0, common_1.Put)(':id/debitori'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, Object]),
+    __metadata("design:returntype", Promise)
+], ClientiController.prototype, "updateDebitoriForCliente", null);
+__decorate([
+    (0, common_1.Delete)(':id/debitori/:debitoreId'),
+    __param(0, (0, common_1.Param)('id')),
+    __param(1, (0, common_1.Param)('debitoreId')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String]),
+    __metadata("design:returntype", Promise)
+], ClientiController.prototype, "unlinkDebitore", null);
 exports.ClientiController = ClientiController = __decorate([
     (0, common_1.Controller)('clienti'),
-    __metadata("design:paramtypes", [clienti_service_1.ClientiService])
+    __metadata("design:paramtypes", [clienti_service_1.ClientiService,
+        clienti_debitori_service_1.ClientiDebitoriService])
 ], ClientiController);
 //# sourceMappingURL=clienti.controller.js.map

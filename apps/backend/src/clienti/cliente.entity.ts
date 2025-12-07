@@ -5,6 +5,8 @@ import {
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { OneToMany } from 'typeorm';
+import { ClienteDebitore } from '../relazioni/cliente-debitore.entity';
 
 export type TipologiaAzienda =
   | 'impresa_individuale'
@@ -78,4 +80,7 @@ export class Cliente {
 
   @Column({ nullable: true })
   pec?: string;
+
+  @OneToMany(() => ClienteDebitore, (cd) => cd.cliente)
+  clientiDebitori: ClienteDebitore[];
 }

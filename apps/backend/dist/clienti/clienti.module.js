@@ -9,17 +9,22 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.ClientiModule = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
-const clienti_service_1 = require("./clienti.service");
-const clienti_controller_1 = require("./clienti.controller");
 const cliente_entity_1 = require("./cliente.entity");
+const clienti_controller_1 = require("./clienti.controller");
+const clienti_service_1 = require("./clienti.service");
+const clienti_debitori_module_1 = require("../relazioni/clienti-debitori.module");
 let ClientiModule = class ClientiModule {
 };
 exports.ClientiModule = ClientiModule;
 exports.ClientiModule = ClientiModule = __decorate([
     (0, common_1.Module)({
-        imports: [typeorm_1.TypeOrmModule.forFeature([cliente_entity_1.Cliente])],
-        providers: [clienti_service_1.ClientiService],
+        imports: [
+            typeorm_1.TypeOrmModule.forFeature([cliente_entity_1.Cliente]),
+            clienti_debitori_module_1.ClientiDebitoriModule,
+        ],
         controllers: [clienti_controller_1.ClientiController],
+        providers: [clienti_service_1.ClientiService],
+        exports: [clienti_service_1.ClientiService],
     })
 ], ClientiModule);
 //# sourceMappingURL=clienti.module.js.map

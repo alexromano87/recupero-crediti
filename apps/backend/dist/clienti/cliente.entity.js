@@ -11,6 +11,8 @@ var __metadata = (this && this.__metadata) || function (k, v) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.Cliente = void 0;
 const typeorm_1 = require("typeorm");
+const typeorm_2 = require("typeorm");
+const cliente_debitore_entity_1 = require("../relazioni/cliente-debitore.entity");
 let Cliente = class Cliente {
     id;
     createdAt;
@@ -30,6 +32,7 @@ let Cliente = class Cliente {
     telefono;
     email;
     pec;
+    clientiDebitori;
 };
 exports.Cliente = Cliente;
 __decorate([
@@ -104,6 +107,10 @@ __decorate([
     (0, typeorm_1.Column)({ nullable: true }),
     __metadata("design:type", String)
 ], Cliente.prototype, "pec", void 0);
+__decorate([
+    (0, typeorm_2.OneToMany)(() => cliente_debitore_entity_1.ClienteDebitore, (cd) => cd.cliente),
+    __metadata("design:type", Array)
+], Cliente.prototype, "clientiDebitori", void 0);
 exports.Cliente = Cliente = __decorate([
     (0, typeorm_1.Entity)('clienti')
 ], Cliente);

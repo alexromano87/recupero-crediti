@@ -1,468 +1,512 @@
-// apps/frontend/src/pages/ClientiPage.tsx
-import { useEffect } from 'react';
-import { useParams } from 'react-router-dom';
-import { ChevronDown } from 'lucide-react';
-
-import { useClientiPage } from '../features/clienti/useClientiPage';
+import React, { useEffect, useState } from 'react';
+import { Building2, Plus, Trash2, Pencil } from 'lucide-react';
+import type { Cliente } from '../api/clienti';
 import {
-  CLIENTE_FIELD_CONFIG,
-  NAZIONI_OPTIONS,
-  TIPOLOGIA_OPTIONS,
-} from '../features/clienti/constants';
+  fetchClienti,
+  createCliente,
+  updateCliente,
+  deleteCliente,
+} from '../api/clienti';
+import { useToast } from '../components/ui/ToastProvider';
+
+type ClienteFormState = {
+  ragioneSociale: string;
+  codiceFiscale: string;
+  partitaIva: string;
+  indirizzo: string;
+  cap: string;
+  citta: string;
+  provincia: string;
+  nazione: string;
+  telefono: string;
+  email: string;
+};
+
+const EMPTY_FORM: ClienteFormState = {
+  ragioneSociale: '',
+  codiceFiscale: '',
+  partitaIva: '',
+  indirizzo: '',
+  cap: '',
+  citta: '',
+  provincia: '',
+  nazione: '',
+  telefono: '',
+  email: '',
+};
+
+function clienteToFormState(c: Cliente | null): ClienteFormState {
+  if (!c) return EMPTY_FORM;
+  return {
+    ragioneSociale: c.ragioneSociale ?? '',
+    codiceFiscale: c.codiceFiscale ?? '',
+    partitaIva: c.partitaIva ?? '',
+    indirizzo: c.indirizzo ?? '',
+    cap: c.cap ?? '',
+    citta: c.citta ?? '',
+    provincia: c.provincia ?? '',
+    nazione: c.nazione ?? '',
+    telefono: c.telefono ?? '',
+    email: c.email ?? '',
+  };
+}
 
 export function ClientiPage() {
-  const {
-    clienti,
-    loading,
-    error,
-    form,
-    isEditing,
-    totalClienti,
-    setError,
-    handleChange,
-    handleSubmit,
-    handleSelectCliente,
-    handleDeleteCliente,
-    resetForm,
-    editingId,
-  } = useClientiPage();
+  const { success: toastSuccess, error: toastError } = useToast();
 
-  const params = useParams<{ id?: string }>();
+  const [clienti, setClienti] = useState<Cliente[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!params.id || !clienti.length) return;
-
-    const cliente = clienti.find((c) => c.id === params.id);
-    if (cliente) {
-      handleSelectCliente(cliente);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params.id, clienti]);
-
-  const tipologiaLabelMap = Object.fromEntries(
-    TIPOLOGIA_OPTIONS.filter((t) => t.value !== '').map((t) => [
-      t.value,
-      t.label,
-    ]),
+  const [selectedClienteId, setSelectedClienteId] = useState<string | null>(
+    null,
   );
+  const [form, setForm] = useState<ClienteFormState>(EMPTY_FORM);
+  const [saving, setSaving] = useState(false);
+
+  const [showForm, setShowForm] = useState(false);
+
+  const selectedCliente =
+    clienti.find((c) => c.id === selectedClienteId) ?? null;
+
+  // --- Caricamento iniziale clienti ---
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await fetchClienti();
+        setClienti(data);
+      } catch (err: any) {
+        console.error(err);
+        const msg =
+          err?.message || 'Errore nel caricamento della lista clienti';
+        setError(msg);
+        toastError(msg, 'Errore caricamento clienti');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    load();
+  }, [toastError]);
+
+  // --- Helpers form ---
+  const resetForm = () => {
+    setSelectedClienteId(null);
+    setForm(EMPTY_FORM);
+    setError(null);
+  };
+
+  const handleNewCliente = () => {
+    resetForm();
+    setShowForm(true);
+  };
+
+  const handleSelectCliente = (cliente: Cliente) => {
+    setSelectedClienteId(cliente.id);
+    setForm(clienteToFormState(cliente));
+    setShowForm(true);
+    setError(null);
+  };
+
+  const handleFormChange =
+    (field: keyof ClienteFormState) =>
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setForm((prev) => ({ ...prev, [field]: e.target.value }));
+      if (error) setError(null);
+    };
+
+  // --- Submit form (create/update) ---
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!form.ragioneSociale.trim()) {
+      const msg = 'La ragione sociale è obbligatoria.';
+      setError(msg);
+      toastError(msg, 'Dati mancanti');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      setError(null);
+
+      const payload = {
+        ragioneSociale: form.ragioneSociale.trim(),
+        codiceFiscale: form.codiceFiscale.trim() || undefined,
+        partitaIva: form.partitaIva.trim() || undefined,
+        indirizzo: form.indirizzo.trim() || undefined,
+        cap: form.cap.trim() || undefined,
+        citta: form.citta.trim() || undefined,
+        provincia: form.provincia.trim() || undefined,
+        nazione: form.nazione.trim() || undefined,
+        telefono: form.telefono.trim() || undefined,
+        email: form.email.trim() || undefined,
+        // altri campi opzionali presenti in ClientePayload,
+        // se ti servono, aggiungili qui
+      };
+
+      let saved: Cliente;
+
+      if (selectedClienteId) {
+        saved = await updateCliente(selectedClienteId, payload as any);
+        setClienti((prev) =>
+          prev.map((c) => (c.id === saved.id ? saved : c)),
+        );
+        toastSuccess('Cliente aggiornato correttamente', 'Operazione riuscita');
+      } else {
+        saved = await createCliente(payload as any);
+        setClienti((prev) => [saved, ...prev]);
+        toastSuccess('Cliente creato correttamente', 'Operazione riuscita');
+      }
+
+      setSelectedClienteId(saved.id);
+      setForm(clienteToFormState(saved));
+      // se vuoi chiudere il form dopo il salvataggio: setShowForm(false);
+    } catch (err: any) {
+      console.error(err);
+      const msg = err?.message || 'Errore durante il salvataggio del cliente';
+      setError(msg);
+      toastError(msg, 'Errore salvataggio');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // --- Eliminazione cliente ---
+  const handleDelete = async (cliente: Cliente) => {
+    const conferma = window.confirm(
+      `Eliminare definitivamente il cliente "${cliente.ragioneSociale}"?`,
+    );
+    if (!conferma) return;
+
+    try {
+      await deleteCliente(cliente.id);
+      setClienti((prev) => prev.filter((c) => c.id !== cliente.id));
+      if (selectedClienteId === cliente.id) {
+        setSelectedClienteId(null);
+        setForm(EMPTY_FORM);
+        setShowForm(false);
+      }
+      toastSuccess('Cliente eliminato', 'Operazione riuscita');
+    } catch (err: any) {
+      console.error(err);
+      const msg =
+        err?.message || 'Errore durante l’eliminazione del cliente';
+      setError(msg);
+      toastError(msg, 'Errore eliminazione');
+    }
+  };
 
   return (
     <div className="space-y-6">
-      {/* HEADER SEZIONE */}
-      <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
-        <div className="space-y-2">
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+      {/* HEADER */}
+      <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+        <div className="space-y-1">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-indigo-600 dark:text-indigo-400">
             Anagrafiche
           </p>
           <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-50">
-            Clienti dello studio
+            Clienti
           </h1>
           <p className="max-w-xl text-xs text-slate-500 dark:text-slate-400">
-            Gestisci le anagrafiche dei soggetti creditori collegati alle
-            pratiche di recupero. I dati inseriti qui saranno richiamabili da
-            tutte le altre sezioni del gestionale.
+            Gestisci l&apos;anagrafica clienti. Il form di creazione /
+            modifica compare solo quando inserisci un nuovo cliente o ne
+            selezioni uno dalla lista.
           </p>
         </div>
 
-        <div className="flex items-end gap-3">
-          {/* BOX NUMERO CLIENTI */}
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-slate-200 bg-white/80 px-5 py-3 text-xs shadow-sm shadow-slate-300/40 dark:border-slate-800 dark:bg-slate-950/70 dark:shadow-black/30">
-            <span className="text-[10px] font-medium uppercase tracking-[0.2em] text-slate-400 dark:text-slate-500">
-              Totale clienti
-            </span>
-            <span className="mt-1 text-2xl font-semibold tabular-nums text-slate-900 dark:text-slate-50">
-              {totalClienti.toString().padStart(2, '0')}
-            </span>
-          </div>
-
-          {/* PULSANTE "NUOVO CLIENTE" */}
+        <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
-            onClick={resetForm}
-            className="inline-flex items-center justify-center rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-md shadow-indigo-900/40 transition hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
+            onClick={handleNewCliente}
+            className="inline-flex items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-medium text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 dark:bg-indigo-500 dark:hover:bg-indigo-400"
           >
-            + Nuovo cliente
+            <Plus className="h-3 w-3" />
+            Nuovo cliente
           </button>
         </div>
       </div>
 
-      {/* ERRORI */}
       {error && (
-        <div className="rounded-lg border border-rose-500/40 bg-rose-950/40 px-3 py-2 text-xs text-rose-100 shadow-sm shadow-rose-900/40">
+        <div className="rounded-lg border border-rose-500/40 bg-rose-600/80 px-3 py-2 text-xs text-rose-100 shadow-sm shadow-rose-900/40">
           {error}
         </div>
       )}
 
-      {/* FORM + LISTA */}
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)]">
-        {/* FORM CLIENTE */}
-        <section className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-lg shadow-slate-300/40 dark:border-slate-800 dark:bg-slate-950/60 dark:shadow-black/40">
-          <div className="mb-3 flex items-center justify-between gap-2">
+      {/* CONTENUTO: FORM + LISTA CON TRANSIZIONE */}
+      <div className="mt-2 flex flex-col gap-4 md:flex-row md:items-start transition-all duration-300 ease-out">
+        {/* FORM CLIENTE (sempre montato, ma collassato quando showForm = false) */}
+        <section
+          className={
+            'rounded-2xl border border-slate-200 bg-white/90 text-xs shadow-sm shadow-slate-200/60 dark:border-slate-800 dark:bg-slate-950/80 dark:shadow-black/40 overflow-hidden transition-all duration-300 ease-out ' +
+            (showForm
+              ? 'max-h-[1600px] md:basis-5/12 opacity-100 translate-y-0'
+              : 'max-h-0 md:basis-0 opacity-0 -translate-y-1 pointer-events-none')
+          }
+        >
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2 dark:border-slate-800">
             <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-              {isEditing ? 'Modifica cliente' : 'Nuovo cliente'}
+              {selectedCliente ? 'Modifica cliente' : 'Nuovo cliente'}
             </h3>
-            {isEditing && (
-              <span className="rounded-full bg-indigo-100 px-3 py-0.5 text-[10px] font-medium text-indigo-700 dark:bg-indigo-900/60 dark:text-indigo-200">
-                Modifica in corso
-              </span>
-            )}
+            <button
+              type="button"
+              onClick={() => {
+                setShowForm(false);
+                // se vuoi, anche resetForm() qui
+              }}
+              className="text-[11px] font-medium text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+            >
+              Annulla
+            </button>
           </div>
 
-          <form
-            onSubmit={handleSubmit}
-            className="grid gap-3 text-xs text-slate-900 dark:text-slate-50"
-          >
-            {/* RAGIONE SOCIALE */}
-            <div>
-              <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                {CLIENTE_FIELD_CONFIG.ragioneSociale.label}
-              </label>
-              <input
-                type="text"
-                name="ragioneSociale"
-                value={form.ragioneSociale}
-                onChange={handleChange}
-                className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:shadow-black/40 dark:placeholder:text-slate-500"
-                placeholder={CLIENTE_FIELD_CONFIG.ragioneSociale.placeholder}
-              />
-            </div>
-
-            {/* TIPOLOGIA + REFERENTE */}
-            <div className="grid gap-3 md:grid-cols-2">
+          <div className="px-4 py-3">
+            <form onSubmit={handleSubmit} className="space-y-3">
+              {/* Ragione sociale */}
               <div>
-                <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                  Tipologia
+                <label className="mb-1 block text-[11px] font-medium text-slate-700 dark:text-slate-200">
+                  Ragione sociale *
                 </label>
-                <div className="relative mt-1">
-                  <select
-                    name="tipologia"
-                    value={form.tipologia}
-                    onChange={handleChange}
-                    className="w-full appearance-none rounded-md border border-slate-200 bg-white/95 px-3 py-2 pr-8 text-xs text-slate-900 shadow-sm shadow-slate-200/60 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:shadow-black/40"
-                  >
-                    {TIPOLOGIA_OPTIONS.map((opt) => (
-                      <option key={opt.value || 'empty'} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute inset-y-0 right-2 my-auto h-4 w-4 text-slate-400 dark:text-slate-500" />
+                <input
+                  type="text"
+                  value={form.ragioneSociale}
+                  onChange={handleFormChange('ragioneSociale')}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs text-slate-900 shadow-sm outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:focus:border-indigo-400 dark:focus:ring-indigo-500/30"
+                />
+              </div>
+
+              {/* CF / P.IVA */}
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium text-slate-700 dark:text-slate-200">
+                    Codice fiscale
+                  </label>
+                  <input
+                    type="text"
+                    value={form.codiceFiscale}
+                    onChange={handleFormChange('codiceFiscale')}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium text-slate-700 dark:text-slate-200">
+                    Partita IVA
+                  </label>
+                  <input
+                    type="text"
+                    value={form.partitaIva}
+                    onChange={handleFormChange('partitaIva')}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+                  />
                 </div>
               </div>
-              <div>
-                <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                  {CLIENTE_FIELD_CONFIG.referente.label}
-                </label>
-                <input
-                  type="text"
-                  name="referente"
-                  value={form.referente}
-                  onChange={handleChange}
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:shadow-black/40 dark:placeholder:text-slate-500"
-                  placeholder={CLIENTE_FIELD_CONFIG.referente.placeholder}
-                />
-              </div>
-            </div>
 
-            {/* P.IVA + TELEFONO */}
-            <div className="grid gap-3 md:grid-cols-2">
+              {/* Indirizzo */}
               <div>
-                <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                  {CLIENTE_FIELD_CONFIG.partitaIva.label}
+                <label className="mb-1 block text-[11px] font-medium text-slate-700 dark:text-slate-200">
+                  Indirizzo
                 </label>
                 <input
                   type="text"
-                  name="partitaIva"
-                  value={form.partitaIva}
-                  onChange={handleChange}
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:shadow-black/40 dark:placeholder:text-slate-500"
-                  placeholder={CLIENTE_FIELD_CONFIG.partitaIva.placeholder}
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                  {CLIENTE_FIELD_CONFIG.telefono.label}
-                </label>
-                <input
-                  type="text"
-                  name="telefono"
-                  value={form.telefono}
-                  onChange={handleChange}
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:shadow-black/40 dark:placeholder:text-slate-500"
-                  placeholder={CLIENTE_FIELD_CONFIG.telefono.placeholder}
-                />
-              </div>
-            </div>
-
-            {/* SEDE LEGALE + SEDE OPERATIVA */}
-            <div className="grid gap-3 md:grid-cols-2">
-              <div>
-                <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                  {CLIENTE_FIELD_CONFIG.sedeLegale.label}
-                </label>
-                <input
-                  type="text"
-                  name="sedeLegale"
-                  value={form.sedeLegale}
-                  onChange={handleChange}
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:shadow-black/40 dark:placeholder:text-slate-500"
-                  placeholder={CLIENTE_FIELD_CONFIG.sedeLegale.placeholder}
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                  {CLIENTE_FIELD_CONFIG.sedeOperativa.label}
-                </label>
-                <input
-                  type="text"
-                  name="sedeOperativa"
-                  value={form.sedeOperativa}
-                  onChange={handleChange}
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:shadow-black/40 dark:placeholder:text-slate-500"
-                  placeholder={CLIENTE_FIELD_CONFIG.sedeOperativa.placeholder}
-                />
-              </div>
-            </div>
-
-            {/* INDIRIZZO + CAP */}
-            <div className="grid gap-3 md:grid-cols-[minmax(0,1.4fr)_minmax(0,0.8fr)]">
-              <div>
-                <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                  {CLIENTE_FIELD_CONFIG.indirizzo.label}
-                </label>
-                <input
-                  type="text"
-                  name="indirizzo"
                   value={form.indirizzo}
-                  onChange={handleChange}
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:shadow-black/40 dark:placeholder:text-slate-500"
-                  placeholder={CLIENTE_FIELD_CONFIG.indirizzo.placeholder}
+                  onChange={handleFormChange('indirizzo')}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
                 />
               </div>
-              <div>
-                <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                  {CLIENTE_FIELD_CONFIG.cap.label}
-                </label>
-                <input
-                  type="text"
-                  name="cap"
-                  value={form.cap}
-                  onChange={handleChange}
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:placeholder:text-slate-500"
-                  placeholder={CLIENTE_FIELD_CONFIG.cap.placeholder}
-                />
-              </div>
-            </div>
 
-            {/* CITTÀ + PROV + NAZIONE */}
-            <div className="grid gap-3 md:grid-cols-3">
-              <div>
-                <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                  {CLIENTE_FIELD_CONFIG.citta.label}
-                </label>
-                <input
-                  type="text"
-                  name="citta"
-                  value={form.citta}
-                  onChange={handleChange}
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:placeholder:text-slate-500"
-                  placeholder={CLIENTE_FIELD_CONFIG.citta.placeholder}
-                />
+              <div className="grid gap-3 md:grid-cols-3">
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium">
+                    CAP
+                  </label>
+                  <input
+                    type="text"
+                    value={form.cap}
+                    onChange={handleFormChange('cap')}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium">
+                    Città
+                  </label>
+                  <input
+                    type="text"
+                    value={form.citta}
+                    onChange={handleFormChange('citta')}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium">
+                    Provincia
+                  </label>
+                  <input
+                    type="text"
+                    value={form.provincia}
+                    onChange={handleFormChange('provincia')}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+                  />
+                </div>
               </div>
+
               <div>
-                <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                  {CLIENTE_FIELD_CONFIG.provincia.label}
-                </label>
-                <input
-                  type="text"
-                  name="provincia"
-                  value={form.provincia}
-                  onChange={handleChange}
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:placeholder:text-slate-500"
-                  placeholder={CLIENTE_FIELD_CONFIG.provincia.placeholder}
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
+                <label className="mb-1 block text-[11px] font-medium">
                   Nazione
                 </label>
-                <div className="relative mt-1">
-                  <select
-                    name="nazione"
-                    value={form.nazione}
-                    onChange={handleChange}
-                    className="mt-0 w-full appearance-none rounded-md border border-slate-200 bg-white/90 px-3 py-2 pr-8 text-xs text-slate-900 shadow-sm shadow-slate-200/60 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:shadow-black/40"
-                  >
-                    {NAZIONI_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute inset-y-0 right-2 my-auto h-4 w-4 text-slate-400 dark:text-slate-500" />
+                <input
+                  type="text"
+                  value={form.nazione}
+                  onChange={handleFormChange('nazione')}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+                />
+              </div>
+
+              {/* Contatti */}
+              <div className="grid gap-3 md:grid-cols-2">
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium">
+                    Telefono
+                  </label>
+                  <input
+                    type="text"
+                    value={form.telefono}
+                    onChange={handleFormChange('telefono')}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[11px] font-medium">
+                    Email
+                  </label>
+                  <input
+                    type="email"
+                    value={form.email}
+                    onChange={handleFormChange('email')}
+                    className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs dark:border-slate-700 dark:bg-slate-900"
+                  />
                 </div>
               </div>
-            </div>
 
-            {/* EMAIL + PEC */}
-            <div className="grid gap-3 md:grid-cols-2">
-              <div>
-                <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                  {CLIENTE_FIELD_CONFIG.email.label}
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={form.email}
-                  onChange={handleChange}
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:shadow-black/40 dark:placeholder:text-slate-500"
-                  placeholder={CLIENTE_FIELD_CONFIG.email.placeholder}
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-medium text-slate-500 dark:text-slate-400">
-                  {CLIENTE_FIELD_CONFIG.pec.label}
-                </label>
-                <input
-                  type="email"
-                  name="pec"
-                  value={form.pec}
-                  onChange={handleChange}
-                  className="mt-1 w-full rounded-md border border-slate-200 bg-white/90 px-3 py-2 text-xs text-slate-900 shadow-sm shadow-slate-200/60 placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-950/70 dark:text-slate-50 dark:shadow-black/40 dark:placeholder:text-slate-500"
-                  placeholder={CLIENTE_FIELD_CONFIG.pec.placeholder}
-                />
-              </div>
-            </div>
-
-            {/* BOTTONI */}
-            <div className="mt-2 flex items-center justify-end gap-2">
-              {isEditing && (
+              <div className="flex justify-end gap-2 pt-1">
                 <button
                   type="button"
-                  onClick={resetForm}
-                  className="rounded-lg border border-slate-300 px-4 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-900/60"
+                  onClick={() => {
+                    setShowForm(false);
+                    // opzionale: resetForm();
+                  }}
+                  className="rounded-lg border border-slate-300 px-3 py-2 text-[11px] font-medium text-slate-700 hover:border-slate-400 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-100 dark:hover:border-slate-500 dark:hover:bg-slate-800"
                 >
                   Annulla
                 </button>
-              )}
-
-              <button
-                type="submit"
-                className="rounded-lg bg-indigo-600 px-4 py-1.5 text-xs font-semibold text-white shadow-md shadow-indigo-900/40 transition hover:bg-indigo-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900"
-              >
-                {isEditing ? 'Aggiorna cliente' : 'Salva cliente'}
-              </button>
-            </div>
-          </form>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="rounded-lg bg-indigo-600 px-4 py-2 text-[11px] font-medium text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 disabled:opacity-60 dark:bg-indigo-500 dark:hover:bg-indigo-400"
+                >
+                  {saving
+                    ? 'Salvataggio...'
+                    : selectedCliente
+                    ? 'Aggiorna cliente'
+                    : 'Crea cliente'}
+                </button>
+              </div>
+            </form>
+          </div>
         </section>
 
         {/* LISTA CLIENTI */}
-        <section className="rounded-2xl border border-slate-200 bg-white/90 p-4 shadow-lg shadow-slate-300/40 dark:border-slate-800 dark:bg-slate-950/60 dark:shadow-black/40">
-          <div className="mb-3 flex items-center justify-between gap-3">
-            <div className="space-y-0.5">
-              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-                Elenco clienti
-              </h3>
-              <p className="text-[11px] text-slate-500 dark:text-slate-400">
-                Clicca su un cliente per modificarne i dati. I clienti saranno
-                poi utilizzabili nell’apertura delle pratiche.
-              </p>
-            </div>
-            <div className="rounded-full bg-slate-100 px-3 py-1 text-[10px] font-medium text-slate-600 dark:bg-slate-900 dark:text-slate-300">
-              {totalClienti} cliente{totalClienti === 1 ? '' : 'i'} trovati
-            </div>
+        <section
+          className={
+            'rounded-2xl border border-slate-200 bg-white/90 p-4 text-xs shadow-sm shadow-slate-200/60 backdrop-blur-sm dark:border-slate-800 dark:bg-slate-950/70 dark:shadow-black/40 transition-all duration-300 ease-out ' +
+            (showForm ? 'md:basis-7/12' : 'md:basis-full')
+          }
+        >
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+              Elenco clienti
+            </h3>
+            <button
+              type="button"
+              onClick={handleNewCliente}
+              className="hidden items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-medium text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 dark:bg-indigo-500 dark:hover:bg-indigo-400 md:inline-flex"
+            >
+              <Plus className="h-3 w-3" />
+              Nuovo cliente
+            </button>
           </div>
 
           {loading ? (
-            <div className="flex h-40 items-center justify-center text-xs text-slate-500 dark:text-slate-400">
+            <p className="text-xs text-slate-500 dark:text-slate-400">
               Caricamento clienti...
-            </div>
+            </p>
           ) : clienti.length === 0 ? (
-            <div className="flex h-40 flex-col items-center justify-center text-xs text-slate-500 dark:text-slate-400">
-              <p className="font-medium">Nessun cliente inserito</p>
-              <p className="mt-1 text-[11px]">
-                Usa il form a sinistra per inserire il primo cliente.
-              </p>
-            </div>
+            <p className="text-xs text-slate-500 dark:text-slate-400">
+              Nessun cliente presente. Usa &quot;Nuovo cliente&quot; per
+              inserirne uno.
+            </p>
           ) : (
-            <div className="overflow-hidden rounded-xl border border-slate-100 bg-white/80 text-xs dark:border-slate-900 dark:bg-slate-950/50">
-              <table className="min-w-full border-collapse">
-                <thead className="bg-slate-50/80 text-[11px] uppercase tracking-[0.12em] text-slate-400 dark:bg-slate-900/60 dark:text-slate-500">
-                  <tr>
-                    <th className="px-3 py-2 text-left">Ragione sociale</th>
-                    <th className="px-3 py-2 text-left">Tipologia</th>
-                    <th className="px-3 py-2 text-left">Referente</th>
-                    <th className="px-3 py-2 text-left">Contatti</th>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-slate-200 text-[11px] uppercase tracking-wide text-slate-500 dark:border-slate-700 dark:text-slate-400">
+                    <th className="px-3 py-2">Cliente</th>
+                    <th className="px-3 py-2">Contatti</th>
                     <th className="px-3 py-2 text-right">Azioni</th>
                   </tr>
                 </thead>
-                <tbody>
-                  {clienti.map((c, idx) => {
-                    const tipologiaLabel =
-                      (c as any).tipologia &&
-                      tipologiaLabelMap[(c as any).tipologia] &&
-                      tipologiaLabelMap[(c as any).tipologia];
-
+                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  {clienti.map((c) => {
+                    const isSelected = c.id === selectedClienteId;
                     return (
                       <tr
                         key={c.id}
                         onClick={() => handleSelectCliente(c)}
-                        className={[
-                          'cursor-pointer border-b border-slate-100 text-slate-700 hover:bg-slate-50/80 dark:border-slate-900 dark:text-slate-100 dark:hover:bg-slate-900/60',
-                          idx % 2 === 0
-                            ? 'bg-white dark:bg-slate-950/40'
-                            : 'bg-slate-50/60 dark:bg-slate-900/40',
-                          editingId === c.id
-                            ? 'ring-1 ring-indigo-400 dark:ring-indigo-500'
-                            : '',
-                        ].join(' ')}
+                        className={
+                          'cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-900/60 ' +
+                          (isSelected
+                            ? 'bg-indigo-50/70 dark:bg-indigo-900/30'
+                            : '')
+                        }
                       >
-                        <td className="px-3 py-2 text-xs font-medium">
-                          {c.ragioneSociale}
-                        </td>
-
-                        {/* Tipologia */}
-                        <td className="px-3 py-2 text-xs">
-                          {tipologiaLabel || '-'}
-                        </td>
-
-                        {/* Referente */}
-                        <td className="px-3 py-2 text-xs">
-                          {(c as any).referente || '-'}
-                        </td>
-
-                        {/* Contatti */}
-                        <td className="px-3 py-2 text-xs">
-                          {c.email && (
-                            <div className="text-slate-800 dark:text-slate-100">
-                              {c.email}
+                        <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-50">
+                          <div className="flex items-center gap-2">
+                            <Building2 className="h-3 w-3 text-slate-400" />
+                            <div className="flex flex-col">
+                              <span>{c.ragioneSociale}</span>
+                              <span className="text-[11px] text-slate-400">
+                                {c.partitaIva
+                                  ? `P.IVA ${c.partitaIva}`
+                                  : c.codiceFiscale || ''}
+                              </span>
                             </div>
-                          )}
-                          {c.telefono && (
-                            <div className="text-[11px] text-slate-500 dark:text-slate-400">
-                              Tel: {c.telefono}
-                            </div>
-                          )}
-                          {(c as any).pec && (
-                            <div className="mt-1 inline-flex items-center rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-200">
-                              PEC attiva
-                            </div>
-                          )}
-                          {!c.email && !c.telefono && !(c as any).pec && (
-                            <span>-</span>
-                          )}
+                          </div>
                         </td>
-
-                        {/* Azioni */}
+                        <td className="px-3 py-2 text-slate-600 dark:text-slate-300">
+                          <div>{c.email || '-'}</div>
+                          <div className="text-[11px] text-slate-400">
+                            {c.telefono || ''}
+                          </div>
+                        </td>
                         <td
                           className="px-3 py-2 text-right"
                           onClick={(e) => e.stopPropagation()}
                         >
                           <button
                             type="button"
-                            onClick={() => handleDeleteCliente(c)}
-                            className="rounded-full border border-rose-200 px-3 py-1 text-[10px] font-semibold text-rose-600 hover:bg-rose-50 dark:border-rose-800 dark:text-rose-300 dark:hover:bg-rose-950/60"
+                            onClick={() => handleSelectCliente(c)}
+                            className="mr-2 inline-flex items-center gap-1 text-[11px] font-medium text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-slate-50"
                           >
+                            <Pencil className="h-3 w-3" />
+                            Modifica
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleDelete(c)}
+                            className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-300"
+                          >
+                            <Trash2 className="h-3 w-3" />
                             Elimina
                           </button>
                         </td>

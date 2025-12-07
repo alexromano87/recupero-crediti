@@ -2,6 +2,8 @@ import { Routes, Route } from 'react-router-dom';
 import { AppLayout } from './layout/AppLayout';
 import { ClientiPage } from './pages/ClientiPage';
 import { RicercaPage } from './pages/RicercaPage';
+import { DebitoriPage } from './pages/DebitoriPage';
+
 
 function DashboardPage() {
   return (
@@ -14,10 +16,6 @@ function DashboardPage() {
       </p>
     </div>
   );
-}
-
-function DebitoriPage() {
-  return <h2 className="text-xl font-semibold">Debitori (placeholder)</h2>;
 }
 
 function PratichePage() {

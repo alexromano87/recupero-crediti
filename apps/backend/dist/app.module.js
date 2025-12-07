@@ -10,6 +10,8 @@ exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
 const typeorm_1 = require("@nestjs/typeorm");
 const clienti_module_1 = require("./clienti/clienti.module");
+const debitori_module_1 = require("./debitori/debitori.module");
+const clienti_debitori_module_1 = require("./relazioni/clienti-debitori.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -27,6 +29,8 @@ exports.AppModule = AppModule = __decorate([
                 synchronize: true,
             }),
             clienti_module_1.ClientiModule,
+            debitori_module_1.DebitoriModule,
+            clienti_debitori_module_1.ClientiDebitoriModule,
         ],
         controllers: [],
         providers: [],

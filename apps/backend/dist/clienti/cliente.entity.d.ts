@@ -1,3 +1,4 @@
+import { ClienteDebitore } from '../relazioni/cliente-debitore.entity';
 export type TipologiaAzienda = 'impresa_individuale' | 'impresa_individuale_agricola' | 'srl' | 'spa' | 'scpa' | 'srl_agricola' | 'snc' | 'sas';
 export declare class Cliente {
     id: string;
@@ -18,4 +19,5 @@ export declare class Cliente {
     telefono?: string;
     email?: string;
     pec?: string;
+    clientiDebitori: ClienteDebitore[];
 }
