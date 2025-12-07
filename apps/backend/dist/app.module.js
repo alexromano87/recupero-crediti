@@ -8,6 +8,7 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.AppModule = void 0;
 const common_1 = require("@nestjs/common");
+const config_1 = require("@nestjs/config");
 const typeorm_1 = require("@nestjs/typeorm");
 const clienti_module_1 = require("./clienti/clienti.module");
 const debitori_module_1 = require("./debitori/debitori.module");
@@ -18,15 +19,23 @@ exports.AppModule = AppModule;
 exports.AppModule = AppModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            typeorm_1.TypeOrmModule.forRoot({
-                type: 'mysql',
-                host: 'localhost',
-                port: 3307,
-                username: 'rc_user',
-                password: 'rc_pass',
-                database: 'recupero_crediti',
-                autoLoadEntities: true,
-                synchronize: true,
+            config_1.ConfigModule.forRoot({
+                isGlobal: true,
+                envFilePath: '.env',
+            }),
+            typeorm_1.TypeOrmModule.forRootAsync({
+                imports: [config_1.ConfigModule],
+                inject: [config_1.ConfigService],
+                useFactory: (configService) => ({
+                    type: 'mysql',
+                    host: configService.get('DB_HOST', 'localhost'),
+                    port: configService.get('DB_PORT', 3307),
+                    username: configService.get('DB_USERNAME', 'rc_user'),
+                    password: configService.get('DB_PASSWORD', 'rc_pass'),
+                    database: configService.get('DB_DATABASE', 'recupero_crediti'),
+                    autoLoadEntities: true,
+                    synchronize: configService.get('NODE_ENV') !== 'production',
+                }),
             }),
             clienti_module_1.ClientiModule,
             debitori_module_1.DebitoriModule,
