@@ -1,0 +1,4 @@
+# dati MySQL / DB locali
+infra/db/data/
+
+apps/backend/dist/tsconfig.build.tsbuildinfo
