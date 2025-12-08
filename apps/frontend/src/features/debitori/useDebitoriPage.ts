@@ -9,6 +9,7 @@ import type {
 } from '../../api/debitori';
 import {
   createDebitore,
+  updateDebitore,
   fetchDebitoriForCliente,
   unlinkDebitoreFromCliente,
   deactivateDebitore,
@@ -17,6 +18,7 @@ import {
 } from '../../api/debitori';
 import { useToast } from '../../components/ui/ToastProvider';
 
+// Form state per nuovo debitore (semplificato)
 export interface NewDebitoreFormState {
   tipoSoggetto: TipoSoggetto;
   nome: string;
@@ -28,7 +30,31 @@ export interface NewDebitoreFormState {
   email: string;
 }
 
-const INITIAL_FORM: NewDebitoreFormState = {
+// Form state completo per dettaglio/modifica debitore
+export interface DebitoreFormState {
+  tipoSoggetto: TipoSoggetto;
+  // Persona fisica
+  nome: string;
+  cognome: string;
+  codiceFiscale: string;
+  dataNascita: string;
+  luogoNascita: string;
+  // Persona giuridica
+  ragioneSociale: string;
+  partitaIva: string;
+  // Comuni
+  indirizzo: string;
+  cap: string;
+  citta: string;
+  provincia: string;
+  nazione: string;
+  referente: string;
+  telefono: string;
+  email: string;
+  pec: string;
+}
+
+const INITIAL_NEW_FORM: NewDebitoreFormState = {
   tipoSoggetto: 'persona_fisica',
   nome: '',
   cognome: '',
@@ -39,32 +65,86 @@ const INITIAL_FORM: NewDebitoreFormState = {
   email: '',
 };
 
+const INITIAL_DETAIL_FORM: DebitoreFormState = {
+  tipoSoggetto: 'persona_fisica',
+  nome: '',
+  cognome: '',
+  codiceFiscale: '',
+  dataNascita: '',
+  luogoNascita: '',
+  ragioneSociale: '',
+  partitaIva: '',
+  indirizzo: '',
+  cap: '',
+  citta: '',
+  provincia: '',
+  nazione: '',
+  referente: '',
+  telefono: '',
+  email: '',
+  pec: '',
+};
+
+function debitoreToFormState(d: Debitore): DebitoreFormState {
+  return {
+    tipoSoggetto: d.tipoSoggetto,
+    nome: d.nome ?? '',
+    cognome: d.cognome ?? '',
+    codiceFiscale: d.codiceFiscale ?? '',
+    dataNascita: d.dataNascita ?? '',
+    luogoNascita: d.luogoNascita ?? '',
+    ragioneSociale: d.ragioneSociale ?? '',
+    partitaIva: d.partitaIva ?? '',
+    indirizzo: d.indirizzo ?? '',
+    cap: d.cap ?? '',
+    citta: d.citta ?? '',
+    provincia: d.provincia ?? '',
+    nazione: d.nazione ?? '',
+    referente: d.referente ?? '',
+    telefono: d.telefono ?? '',
+    email: d.email ?? '',
+    pec: d.pec ?? '',
+  };
+}
+
 export function useDebitoriPage() {
   const { success: toastSuccess, error: toastError } = useToast();
 
+  // === STATO CLIENTI ===
   const [clienti, setClienti] = useState<Cliente[]>([]);
   const [loadingClienti, setLoadingClienti] = useState(true);
+  const [selectedClienteId, setSelectedClienteId] = useState<string | null>(null);
 
-  const [selectedClienteId, setSelectedClienteId] = useState<string | null>(
-    null,
-  );
-
-  const [selectedDebitore, setSelectedDebitore] = useState<Debitore | null>(null);
-
+  // === STATO DEBITORI ===
   const [debitori, setDebitori] = useState<Debitore[]>([]);
   const [loadingDebitori, setLoadingDebitori] = useState(false);
-
-  // Stato per mostrare/nascondere debitori disattivati
   const [showInactive, setShowInactive] = useState(false);
 
+  // === STATO SELEZIONE DEBITORE ===
+  const [selectedDebitoreId, setSelectedDebitoreId] = useState<string | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  const [detailForm, setDetailForm] = useState<DebitoreFormState>(INITIAL_DETAIL_FORM);
+  const [savingDetail, setSavingDetail] = useState(false);
+
+  // === STATO NUOVO DEBITORE ===
+  const [showNewForm, setShowNewForm] = useState(false);
+  const [newForm, setNewForm] = useState<NewDebitoreFormState>(INITIAL_NEW_FORM);
+
+  // === STATO GENERALE ===
   const [error, setError] = useState<string | null>(null);
 
-  const [showNewForm, setShowNewForm] = useState(false);
-  const [newForm, setNewForm] =
-    useState<NewDebitoreFormState>(INITIAL_FORM);
+  // === COMPUTED ===
+  const selectedCliente = useMemo(
+    () => clienti.find((c) => c.id === selectedClienteId) ?? null,
+    [clienti, selectedClienteId],
+  );
 
-  // --- Carica clienti all'avvio ---
+  const selectedDebitore = useMemo(
+    () => debitori.find((d) => d.id === selectedDebitoreId) ?? null,
+    [debitori, selectedDebitoreId],
+  );
 
+  // === CARICAMENTO CLIENTI ===
   useEffect(() => {
     const loadClienti = async () => {
       try {
@@ -84,19 +164,12 @@ export function useDebitoriPage() {
     loadClienti();
   }, [toastError]);
 
-  // --- Cliente selezionato (oggetto) ---
-
-  const selectedCliente = useMemo(
-    () => clienti.find((c) => c.id === selectedClienteId) ?? null,
-    [clienti, selectedClienteId],
-  );
-
-  // --- Carica debitori quando cambia il cliente selezionato o showInactive ---
-
+  // === CARICAMENTO DEBITORI ===
   useEffect(() => {
     if (!selectedClienteId) {
       setDebitori([]);
-      setSelectedDebitore(null);  // <-- reset quando cambi cliente
+      setSelectedDebitoreId(null);
+      setIsEditing(false);
       return;
     }
 
@@ -106,11 +179,11 @@ export function useDebitoriPage() {
         setError(null);
         const data = await fetchDebitoriForCliente(selectedClienteId, showInactive);
         setDebitori(data);
-        setSelectedDebitore(null);  // <-- reset anche al reload della lista
+        setSelectedDebitoreId(null);
+        setIsEditing(false);
       } catch (err: any) {
         console.error(err);
-        const msg =
-          err.message || 'Errore nel caricamento dei debitori del cliente';
+        const msg = err.message || 'Errore nel caricamento dei debitori del cliente';
         setError(msg);
         toastError(msg, 'Errore caricamento debitori');
       } finally {
@@ -121,183 +194,129 @@ export function useDebitoriPage() {
     loadDebitori();
   }, [selectedClienteId, showInactive, toastError]);
 
-  // --- Gestione cambio cliente ---
-
+  // === HANDLERS CLIENTE ===
   const handleSelectCliente = (clienteId: string | null) => {
     setSelectedClienteId(clienteId);
     setShowNewForm(false);
-    setNewForm(INITIAL_FORM);
-    setSelectedDebitore(null);
-    setError(null);
+    setNewForm(INITIAL_NEW_FORM);
+    setSelectedDebitoreId(null);
+    setIsEditing(false);
   };
 
-  // --- Selezione debitore dalla tabella ---
-  
+  // === HANDLERS SELEZIONE DEBITORE ===
   const handleSelectDebitore = (debitore: Debitore) => {
-    setSelectedDebitore(debitore);
-  };
-
-  // --- Gestione form nuovo debitore ---
-
-  const updateNewForm = (
-    field: keyof NewDebitoreFormState,
-    value: string,
-  ) => {
-    setNewForm((prev) => ({
-      ...prev,
-      [field]: value,
-    }));
-    if (error) setError(null);
-  };
-
-  const resetNewForm = () => {
-    setNewForm(INITIAL_FORM);
+    setSelectedDebitoreId(debitore.id);
+    setDetailForm(debitoreToFormState(debitore));
+    setIsEditing(false);
     setShowNewForm(false);
     setError(null);
   };
 
-  const submitNewDebitore = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedClienteId) {
-      setError('Seleziona prima un cliente.');
-      toastError('Seleziona prima un cliente.', 'Cliente non selezionato');
-      return;
-    }
+  const handleCloseDetail = () => {
+    setSelectedDebitoreId(null);
+    setIsEditing(false);
+  };
 
-    // Validazioni minime
-    if (newForm.tipoSoggetto === 'persona_fisica') {
-      if (!newForm.nome.trim() || !newForm.cognome.trim()) {
+  const handleStartEditing = () => {
+    setIsEditing(true);
+  };
+
+  const handleCancelEditing = () => {
+    if (selectedDebitore) {
+      setDetailForm(debitoreToFormState(selectedDebitore));
+    }
+    setIsEditing(false);
+  };
+
+  const updateDetailForm = <K extends keyof DebitoreFormState>(
+    field: K,
+    value: DebitoreFormState[K],
+  ) => {
+    setDetailForm((prev) => ({ ...prev, [field]: value }));
+  };
+
+  const isDetailFormDirty = (): boolean => {
+    if (!selectedDebitore) return false;
+    const original = debitoreToFormState(selectedDebitore);
+    return Object.keys(detailForm).some(
+      (key) => detailForm[key as keyof DebitoreFormState] !== original[key as keyof DebitoreFormState],
+    );
+  };
+
+  // === SALVATAGGIO MODIFICA DEBITORE ===
+  const submitDetailForm = async (): Promise<boolean> => {
+    if (!selectedDebitoreId) return false;
+
+    // Validazione
+    if (detailForm.tipoSoggetto === 'persona_fisica') {
+      if (!detailForm.nome.trim() || !detailForm.cognome.trim()) {
         const msg = 'Nome e cognome sono obbligatori per persona fisica.';
         setError(msg);
         toastError(msg, 'Dati mancanti');
-        return;
+        return false;
       }
     } else {
-      if (!newForm.ragioneSociale.trim()) {
-        const msg =
-          'La ragione sociale è obbligatoria per persona giuridica.';
+      if (!detailForm.ragioneSociale.trim()) {
+        const msg = 'La ragione sociale è obbligatoria per persona giuridica.';
         setError(msg);
         toastError(msg, 'Dati mancanti');
-        return;
+        return false;
       }
     }
 
     try {
+      setSavingDetail(true);
       setError(null);
 
-      const payload: DebitoreCreatePayload = {
-        tipoSoggetto: newForm.tipoSoggetto,
-        nome: newForm.tipoSoggetto === 'persona_fisica' ? newForm.nome : '',
-        cognome:
-          newForm.tipoSoggetto === 'persona_fisica'
-            ? newForm.cognome
-            : '',
-        ragioneSociale:
-          newForm.tipoSoggetto === 'persona_giuridica'
-            ? newForm.ragioneSociale
-            : '',
-        codiceFiscale: newForm.codiceFiscale || undefined,
-        partitaIva: newForm.partitaIva || undefined,
-        telefono: newForm.telefono || undefined,
-        email: newForm.email || undefined,
-        clientiIds: [selectedClienteId],
+      const payload = {
+        tipoSoggetto: detailForm.tipoSoggetto,
+        nome: detailForm.tipoSoggetto === 'persona_fisica' ? detailForm.nome.trim() || undefined : undefined,
+        cognome: detailForm.tipoSoggetto === 'persona_fisica' ? detailForm.cognome.trim() || undefined : undefined,
+        codiceFiscale: detailForm.codiceFiscale.trim() || undefined,
+        dataNascita: detailForm.dataNascita || undefined,
+        luogoNascita: detailForm.luogoNascita.trim() || undefined,
+        ragioneSociale: detailForm.tipoSoggetto === 'persona_giuridica' ? detailForm.ragioneSociale.trim() || undefined : undefined,
+        partitaIva: detailForm.partitaIva.trim() || undefined,
+        indirizzo: detailForm.indirizzo.trim() || undefined,
+        cap: detailForm.cap.trim() || undefined,
+        citta: detailForm.citta.trim() || undefined,
+        provincia: detailForm.provincia.trim() || undefined,
+        nazione: detailForm.nazione.trim() || undefined,
+        referente: detailForm.referente.trim() || undefined,
+        telefono: detailForm.telefono.trim() || undefined,
+        email: detailForm.email.trim() || undefined,
+        pec: detailForm.pec.trim() || undefined,
       };
 
-      const created = await createDebitore(payload);
-
-      setDebitori((prev) => [created, ...prev]);
-      toastSuccess(
-        'Debitore creato e collegato al cliente',
-        'Operazione riuscita',
-      );
-      resetNewForm();
-      setShowNewForm(false);
+      const updated = await updateDebitore(selectedDebitoreId, payload);
+      setDebitori((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+      setDetailForm(debitoreToFormState(updated));
+      setIsEditing(false);
+      toastSuccess('Debitore aggiornato correttamente', 'Operazione riuscita');
+      return true;
     } catch (err: any) {
       console.error(err);
-      const msg = err.message || 'Errore nella creazione del debitore';
+      const msg = err?.message || 'Errore durante il salvataggio';
       setError(msg);
       toastError(msg, 'Errore salvataggio');
+      return false;
+    } finally {
+      setSavingDetail(false);
     }
   };
 
-  // --- Scollega debitore (senza confirm - sarà gestito dalla UI) ---
-
-  const unlinkDebitoreAction = async (debitore: Debitore) => {
-    if (!selectedClienteId) return;
-
-    try {
-      await unlinkDebitoreFromCliente(selectedClienteId, debitore.id);
-      setDebitori((prev) => prev.filter((d) => d.id !== debitore.id));
-      setSelectedDebitore((current) =>
-        current?.id === debitore.id ? null : current,
-      );
-      toastSuccess('Debitore scollegato dal cliente', 'Operazione riuscita');
-    } catch (err: any) {
-      console.error(err);
-      const msg =
-        err.message || 'Errore durante lo scollegamento del debitore';
-      setError(msg);
-      toastError(msg, 'Errore scollegamento');
-    }
+  // === HANDLERS NUOVO DEBITORE ===
+  const updateNewForm = <K extends keyof NewDebitoreFormState>(
+    field: K,
+    value: NewDebitoreFormState[K],
+  ) => {
+    setNewForm((prev) => ({ ...prev, [field]: value }));
   };
 
-  // --- Disattiva debitore (soft-delete) ---
-
-  const deactivateDebitoreAction = async (debitore: Debitore) => {
-    try {
-      const updated = await deactivateDebitore(debitore.id);
-      setDebitori((prev) =>
-        prev.map((d) => (d.id === updated.id ? updated : d)),
-      );
-      if (selectedDebitore?.id === debitore.id) {
-        setSelectedDebitore(updated);
-      }
-      toastSuccess('Debitore disattivato', 'Operazione riuscita');
-    } catch (err: any) {
-      console.error(err);
-      const msg = err.message || 'Errore durante la disattivazione';
-      toastError(msg, 'Errore disattivazione');
-    }
+  const resetNewForm = () => {
+    setNewForm(INITIAL_NEW_FORM);
+    setShowNewForm(false);
   };
-
-  // --- Riattiva debitore ---
-
-  const reactivateDebitoreAction = async (debitore: Debitore) => {
-    try {
-      const updated = await reactivateDebitore(debitore.id);
-      setDebitori((prev) =>
-        prev.map((d) => (d.id === updated.id ? updated : d)),
-      );
-      if (selectedDebitore?.id === debitore.id) {
-        setSelectedDebitore(updated);
-      }
-      toastSuccess('Debitore riattivato', 'Operazione riuscita');
-    } catch (err: any) {
-      console.error(err);
-      const msg = err.message || 'Errore durante la riattivazione';
-      toastError(msg, 'Errore riattivazione');
-    }
-  };
-
-  // --- Elimina debitore definitivamente ---
-
-  const deleteDebitoreAction = async (debitore: Debitore) => {
-    try {
-      await deleteDebitore(debitore.id);
-      setDebitori((prev) => prev.filter((d) => d.id !== debitore.id));
-      if (selectedDebitore?.id === debitore.id) {
-        setSelectedDebitore(null);
-      }
-      toastSuccess('Debitore eliminato definitivamente', 'Operazione riuscita');
-    } catch (err: any) {
-      console.error(err);
-      const msg = err.message || 'Errore durante l\'eliminazione del debitore';
-      setError(msg);
-      toastError(msg, 'Errore eliminazione');
-    }
-  };
-
-  // --- Verifica se il form nuovo debitore è stato modificato ---
 
   const isNewFormDirty = (): boolean => {
     return (
@@ -311,39 +330,186 @@ export function useDebitoriPage() {
     );
   };
 
+  const submitNewDebitore = async (): Promise<boolean> => {
+    if (!selectedClienteId) {
+      const msg = 'Nessun cliente selezionato.';
+      setError(msg);
+      toastError(msg, 'Errore');
+      return false;
+    }
+
+    // Validazione base
+    if (newForm.tipoSoggetto === 'persona_fisica') {
+      if (!newForm.nome.trim() || !newForm.cognome.trim()) {
+        const msg = 'Nome e cognome sono obbligatori per persona fisica.';
+        setError(msg);
+        toastError(msg, 'Dati mancanti');
+        return false;
+      }
+    } else {
+      if (!newForm.ragioneSociale.trim()) {
+        const msg = 'Ragione sociale obbligatoria per persona giuridica.';
+        setError(msg);
+        toastError(msg, 'Dati mancanti');
+        return false;
+      }
+    }
+
+    try {
+      const payload: DebitoreCreatePayload = {
+        tipoSoggetto: newForm.tipoSoggetto,
+        nome: newForm.nome.trim() || undefined,
+        cognome: newForm.cognome.trim() || undefined,
+        ragioneSociale: newForm.ragioneSociale.trim() || undefined,
+        codiceFiscale: newForm.codiceFiscale.trim() || undefined,
+        partitaIva: newForm.partitaIva.trim() || undefined,
+        telefono: newForm.telefono.trim() || undefined,
+        email: newForm.email.trim() || undefined,
+        clientiIds: [selectedClienteId],
+      };
+
+      const created = await createDebitore(payload);
+      setDebitori((prev) => [created, ...prev]);
+      resetNewForm();
+      toastSuccess('Debitore creato e collegato correttamente', 'Operazione riuscita');
+      return true;
+    } catch (err: any) {
+      console.error(err);
+      const msg = err?.message || 'Errore nella creazione del debitore';
+      setError(msg);
+      toastError(msg, 'Errore creazione');
+      return false;
+    }
+  };
+
+  // === AZIONI DEBITORE ===
+  const unlinkDebitoreAction = async (debitoreId: string): Promise<boolean> => {
+    if (!selectedClienteId) return false;
+
+    try {
+      await unlinkDebitoreFromCliente(selectedClienteId, debitoreId);
+      setDebitori((prev) => prev.filter((d) => d.id !== debitoreId));
+      if (selectedDebitoreId === debitoreId) {
+        setSelectedDebitoreId(null);
+        setIsEditing(false);
+      }
+      toastSuccess('Debitore scollegato dal cliente', 'Operazione riuscita');
+      return true;
+    } catch (err: any) {
+      console.error(err);
+      toastError(err?.message || 'Errore durante lo scollegamento', 'Errore');
+      return false;
+    }
+  };
+
+  const deactivateDebitoreAction = async (debitoreId: string): Promise<boolean> => {
+    try {
+      const updated = await deactivateDebitore(debitoreId);
+      if (showInactive) {
+        setDebitori((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+        if (selectedDebitoreId === debitoreId) {
+          setDetailForm(debitoreToFormState(updated));
+        }
+      } else {
+        setDebitori((prev) => prev.filter((d) => d.id !== debitoreId));
+        if (selectedDebitoreId === debitoreId) {
+          setSelectedDebitoreId(null);
+          setIsEditing(false);
+        }
+      }
+      toastSuccess('Debitore disattivato', 'Operazione riuscita');
+      return true;
+    } catch (err: any) {
+      console.error(err);
+      toastError(err?.message || 'Errore durante la disattivazione', 'Errore');
+      return false;
+    }
+  };
+
+  const reactivateDebitoreAction = async (debitoreId: string): Promise<boolean> => {
+    try {
+      const updated = await reactivateDebitore(debitoreId);
+      setDebitori((prev) => prev.map((d) => (d.id === updated.id ? updated : d)));
+      if (selectedDebitoreId === debitoreId) {
+        setDetailForm(debitoreToFormState(updated));
+      }
+      toastSuccess('Debitore riattivato', 'Operazione riuscita');
+      return true;
+    } catch (err: any) {
+      console.error(err);
+      toastError(err?.message || 'Errore durante la riattivazione', 'Errore');
+      return false;
+    }
+  };
+
+  const deleteDebitoreAction = async (debitoreId: string): Promise<boolean> => {
+    try {
+      await deleteDebitore(debitoreId);
+      setDebitori((prev) => prev.filter((d) => d.id !== debitoreId));
+      if (selectedDebitoreId === debitoreId) {
+        setSelectedDebitoreId(null);
+        setIsEditing(false);
+      }
+      toastSuccess('Debitore eliminato definitivamente', 'Operazione riuscita');
+      return true;
+    } catch (err: any) {
+      console.error(err);
+      toastError(err?.message || 'Errore durante l\'eliminazione', 'Errore');
+      return false;
+    }
+  };
+
   return {
-    // stato generale
+    // Stato clienti
     clienti,
     loadingClienti,
     selectedClienteId,
     selectedCliente,
+
+    // Stato debitori
     debitori,
     loadingDebitori,
-    error,
-
-    // filtro disattivati
     showInactive,
     setShowInactive,
 
-    // stato nuovo debitore
+    // Stato selezione debitore
+    selectedDebitoreId,
+    selectedDebitore,
+    isEditing,
+    detailForm,
+    savingDetail,
+
+    // Stato nuovo debitore
     showNewForm,
     newForm,
 
-    // nuovo stato dettaglio debitore
-    selectedDebitore,
+    // Stato generale
+    error,
+    setError,
 
-    // azioni
+    // Handlers cliente
     handleSelectCliente,
+
+    // Handlers selezione debitore
     handleSelectDebitore,
+    handleCloseDetail,
+    handleStartEditing,
+    handleCancelEditing,
+    updateDetailForm,
+    isDetailFormDirty,
+    submitDetailForm,
+
+    // Handlers nuovo debitore
     setShowNewForm,
     updateNewForm,
     resetNewForm,
+    isNewFormDirty,
     submitNewDebitore,
+
+    // Azioni debitore
     unlinkDebitore: unlinkDebitoreAction,
     deactivateDebitore: deactivateDebitoreAction,
     reactivateDebitore: reactivateDebitoreAction,
     deleteDebitore: deleteDebitoreAction,
-    isNewFormDirty,
-    setError,
   };
 }
