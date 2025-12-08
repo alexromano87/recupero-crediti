@@ -23,29 +23,63 @@ let ClientiService = class ClientiService {
         this.repo = repo;
     }
     async create(data) {
+        if (data.partitaIva) {
+            const existing = await this.repo.findOne({
+                where: { partitaIva: data.partitaIva },
+            });
+            if (existing) {
+                throw new common_1.ConflictException('Esiste già un cliente con questa Partita IVA');
+            }
+        }
         const cliente = this.repo.create(data);
         return this.repo.save(cliente);
     }
-    async findAll() {
+    async findAll(includeInactive = false) {
+        const where = includeInactive ? {} : { attivo: true };
         return this.repo.find({
-            order: { createdAt: 'DESC' },
+            where,
+            order: { ragioneSociale: 'ASC' },
         });
     }
     async findOne(id) {
-        return this.repo.findOne({
+        const cliente = await this.repo.findOne({
             where: { id },
         });
+        if (!cliente) {
+            throw new common_1.NotFoundException(`Cliente con ID ${id} non trovato`);
+        }
+        return cliente;
     }
     async update(id, data) {
+        const cliente = await this.findOne(id);
+        if (data.partitaIva && data.partitaIva !== cliente.partitaIva) {
+            const existing = await this.repo.findOne({
+                where: { partitaIva: data.partitaIva },
+            });
+            if (existing && existing.id !== id) {
+                throw new common_1.ConflictException('Esiste già un cliente con questa Partita IVA');
+            }
+        }
         await this.repo.update({ id }, data);
         return this.findOne(id);
     }
+    async deactivate(id) {
+        const cliente = await this.findOne(id);
+        await this.repo.update({ id }, { attivo: false });
+        return { ...cliente, attivo: false };
+    }
+    async reactivate(id) {
+        const cliente = await this.findOne(id);
+        await this.repo.update({ id }, { attivo: true });
+        return { ...cliente, attivo: true };
+    }
     async remove(id) {
         const cliente = await this.findOne(id);
-        if (!cliente)
-            return null;
         await this.repo.delete({ id });
         return cliente;
+    }
+    async countPraticheCollegate(id) {
+        return 0;
     }
 };
 exports.ClientiService = ClientiService;
