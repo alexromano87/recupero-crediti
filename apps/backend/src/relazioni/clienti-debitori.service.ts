@@ -14,13 +14,24 @@ export class ClientiDebitoriService {
     private readonly debitoriRepo: Repository<Debitore>,
   ) {}
 
-  async getDebitoriByCliente(clienteId: string): Promise<Debitore[]> {
+  async getDebitoriByCliente(
+    clienteId: string,
+    includeInactive = false,
+  ): Promise<Debitore[]> {
     const links = await this.cdRepo.find({
       where: { clienteId, attivo: true },
       relations: ['debitore'],
     });
 
-    return links.map((l) => l.debitore);
+    // Filtra i debitori in base allo stato attivo
+    const debitori = links.map((l) => l.debitore);
+    
+    if (includeInactive) {
+      return debitori; // Restituisci tutti i debitori collegati
+    }
+    
+    // Filtra solo i debitori attivi
+    return debitori.filter((d) => d.attivo !== false);
   }
 
   /**

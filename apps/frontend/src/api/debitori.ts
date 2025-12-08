@@ -131,8 +131,12 @@ export function fetchPraticheCountForDebitore(
 
 // ====== Relazione Cliente <-> Debitore ======
 
-export function fetchDebitoriForCliente(clienteId: string): Promise<Debitore[]> {
-  return api.get<Debitore[]>(`/clienti/${clienteId}/debitori`);
+export function fetchDebitoriForCliente(
+  clienteId: string,
+  includeInactive = false,
+): Promise<Debitore[]> {
+  const params = includeInactive ? { includeInactive: 'true' } : undefined;
+  return api.get<Debitore[]>(`/clienti/${clienteId}/debitori`, params);
 }
 
 export function unlinkDebitoreFromCliente(

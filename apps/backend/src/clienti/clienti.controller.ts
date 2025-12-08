@@ -79,10 +79,14 @@ export class ClientiController {
   // ====== RELAZIONE CLIENTE <-> DEBITORI ======
   // usata dalla pagina Debitori e/o sezione debitori in Clienti
 
-  // GET /clienti/:id/debitori
+  // GET /clienti/:id/debitori?includeInactive=true
   @Get(':id/debitori')
-  getDebitoriForCliente(@Param('id') id: string) {
-    return this.clientiDebitoriService.getDebitoriByCliente(id);
+  getDebitoriForCliente(
+    @Param('id') id: string,
+    @Query('includeInactive') includeInactive?: string,
+  ) {
+    const includeInact = includeInactive === 'true';
+    return this.clientiDebitoriService.getDebitoriByCliente(id, includeInact);
   }
 
   // PUT /clienti/:id/debitori

@@ -11,6 +11,9 @@ import {
   createDebitore,
   fetchDebitoriForCliente,
   unlinkDebitoreFromCliente,
+  deactivateDebitore,
+  reactivateDebitore,
+  deleteDebitore,
 } from '../../api/debitori';
 import { useToast } from '../../components/ui/ToastProvider';
 
@@ -51,6 +54,9 @@ export function useDebitoriPage() {
   const [debitori, setDebitori] = useState<Debitore[]>([]);
   const [loadingDebitori, setLoadingDebitori] = useState(false);
 
+  // Stato per mostrare/nascondere debitori disattivati
+  const [showInactive, setShowInactive] = useState(false);
+
   const [error, setError] = useState<string | null>(null);
 
   const [showNewForm, setShowNewForm] = useState(false);
@@ -85,7 +91,7 @@ export function useDebitoriPage() {
     [clienti, selectedClienteId],
   );
 
-  // --- Carica debitori quando cambia il cliente selezionato ---
+  // --- Carica debitori quando cambia il cliente selezionato o showInactive ---
 
   useEffect(() => {
     if (!selectedClienteId) {
@@ -98,7 +104,7 @@ export function useDebitoriPage() {
       try {
         setLoadingDebitori(true);
         setError(null);
-        const data = await fetchDebitoriForCliente(selectedClienteId);
+        const data = await fetchDebitoriForCliente(selectedClienteId, showInactive);
         setDebitori(data);
         setSelectedDebitore(null);  // <-- reset anche al reload della lista
       } catch (err: any) {
@@ -113,7 +119,7 @@ export function useDebitoriPage() {
     };
 
     loadDebitori();
-  }, [selectedClienteId, toastError]);
+  }, [selectedClienteId, showInactive, toastError]);
 
   // --- Gestione cambio cliente ---
 
@@ -214,22 +220,17 @@ export function useDebitoriPage() {
     }
   };
 
-  // --- Scollega debitore ---
+  // --- Scollega debitore (senza confirm - sarà gestito dalla UI) ---
 
-  const unlinkDebitore = async (debitore: Debitore) => {
+  const unlinkDebitoreAction = async (debitore: Debitore) => {
     if (!selectedClienteId) return;
-
-    const conferma = window.confirm(
-      `Scollegare il debitore selezionato dal cliente?`,
-    );
-    if (!conferma) return;
 
     try {
       await unlinkDebitoreFromCliente(selectedClienteId, debitore.id);
       setDebitori((prev) => prev.filter((d) => d.id !== debitore.id));
       setSelectedDebitore((current) =>
         current?.id === debitore.id ? null : current,
-    );
+      );
       toastSuccess('Debitore scollegato dal cliente', 'Operazione riuscita');
     } catch (err: any) {
       console.error(err);
@@ -238,6 +239,76 @@ export function useDebitoriPage() {
       setError(msg);
       toastError(msg, 'Errore scollegamento');
     }
+  };
+
+  // --- Disattiva debitore (soft-delete) ---
+
+  const deactivateDebitoreAction = async (debitore: Debitore) => {
+    try {
+      const updated = await deactivateDebitore(debitore.id);
+      setDebitori((prev) =>
+        prev.map((d) => (d.id === updated.id ? updated : d)),
+      );
+      if (selectedDebitore?.id === debitore.id) {
+        setSelectedDebitore(updated);
+      }
+      toastSuccess('Debitore disattivato', 'Operazione riuscita');
+    } catch (err: any) {
+      console.error(err);
+      const msg = err.message || 'Errore durante la disattivazione';
+      toastError(msg, 'Errore disattivazione');
+    }
+  };
+
+  // --- Riattiva debitore ---
+
+  const reactivateDebitoreAction = async (debitore: Debitore) => {
+    try {
+      const updated = await reactivateDebitore(debitore.id);
+      setDebitori((prev) =>
+        prev.map((d) => (d.id === updated.id ? updated : d)),
+      );
+      if (selectedDebitore?.id === debitore.id) {
+        setSelectedDebitore(updated);
+      }
+      toastSuccess('Debitore riattivato', 'Operazione riuscita');
+    } catch (err: any) {
+      console.error(err);
+      const msg = err.message || 'Errore durante la riattivazione';
+      toastError(msg, 'Errore riattivazione');
+    }
+  };
+
+  // --- Elimina debitore definitivamente ---
+
+  const deleteDebitoreAction = async (debitore: Debitore) => {
+    try {
+      await deleteDebitore(debitore.id);
+      setDebitori((prev) => prev.filter((d) => d.id !== debitore.id));
+      if (selectedDebitore?.id === debitore.id) {
+        setSelectedDebitore(null);
+      }
+      toastSuccess('Debitore eliminato definitivamente', 'Operazione riuscita');
+    } catch (err: any) {
+      console.error(err);
+      const msg = err.message || 'Errore durante l\'eliminazione del debitore';
+      setError(msg);
+      toastError(msg, 'Errore eliminazione');
+    }
+  };
+
+  // --- Verifica se il form nuovo debitore è stato modificato ---
+
+  const isNewFormDirty = (): boolean => {
+    return (
+      newForm.nome.trim() !== '' ||
+      newForm.cognome.trim() !== '' ||
+      newForm.ragioneSociale.trim() !== '' ||
+      newForm.codiceFiscale.trim() !== '' ||
+      newForm.partitaIva.trim() !== '' ||
+      newForm.telefono.trim() !== '' ||
+      newForm.email.trim() !== ''
+    );
   };
 
   return {
@@ -249,6 +320,10 @@ export function useDebitoriPage() {
     debitori,
     loadingDebitori,
     error,
+
+    // filtro disattivati
+    showInactive,
+    setShowInactive,
 
     // stato nuovo debitore
     showNewForm,
@@ -264,7 +339,11 @@ export function useDebitoriPage() {
     updateNewForm,
     resetNewForm,
     submitNewDebitore,
-    unlinkDebitore,
+    unlinkDebitore: unlinkDebitoreAction,
+    deactivateDebitore: deactivateDebitoreAction,
+    reactivateDebitore: reactivateDebitoreAction,
+    deleteDebitore: deleteDebitoreAction,
+    isNewFormDirty,
     setError,
   };
 }
