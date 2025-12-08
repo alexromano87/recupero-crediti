@@ -5,6 +5,7 @@ import {
   ChevronRight,
   Users,
   Building2,
+  User,
   FileText,
   Bell,
   Ticket,
@@ -13,6 +14,8 @@ import { useNavigate } from 'react-router-dom';
 
 import type { Cliente } from '../api/clienti';
 import { fetchClienti } from '../api/clienti';
+import type { Debitore } from '../api/debitori';
+import { fetchDebitori, getDebitoreDisplayName, fetchClientiForDebitore } from '../api/debitori';
 import { useToast } from '../components/ui/ToastProvider';
 
 type TipoRisultato = 'cliente' | 'debitore' | 'pratica' | 'alert' | 'ticket';
@@ -39,13 +42,13 @@ const numeroAFormatoItaliano = (valore: string) => {
 };
 
 export function RicercaPage() {
-  // === Stato dati (per ora solo clienti caricati dal backend) ===
+  // === Stato dati ===
   const [clienti, setClienti] = useState<Cliente[]>([]);
+  const [debitori, setDebitori] = useState<Debitore[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
   // Placeholder per quando avremo API anche per questi
-  const [debitori] = useState<any[]>([]);
   const [pratiche] = useState<any[]>([]);
   const [alerts] = useState<any[]>([]);
   const [tickets] = useState<any[]>([]);
@@ -64,15 +67,19 @@ export function RicercaPage() {
   const navigate = useNavigate();
   const { error: toastError } = useToast();
 
-  // === Caricamento dati (per ora solo clienti) ===
+  // === Caricamento dati ===
   useEffect(() => {
     const load = async () => {
       try {
         setLoading(true);
-        const data = await fetchClienti();
-        setClienti(data);
+        const [clientiData, debitoriData] = await Promise.all([
+          fetchClienti(true), // Include anche disattivati per ricerca completa
+          fetchDebitori(true),
+        ]);
+        setClienti(clientiData);
+        setDebitori(debitoriData);
       } catch (e: any) {
-        const msg = e?.message ?? 'Errore nel recupero dei clienti';
+        const msg = e?.message ?? 'Errore nel recupero dei dati';
         setError(msg);
         toastError(msg, 'Errore caricamento ricerca');
       } finally {
@@ -185,32 +192,49 @@ export function RicercaPage() {
     }
   };
 
-  // === Navigazione al dettaglio (per ora semplice: va alla pagina corretta) ===
-  const visualizzaDettaglio = (risultato: RisultatoRicerca) => {
-  switch (risultato.tipo) {
-    case 'cliente':
-      if (risultato.data?.id) {
-        navigate(`/clienti/${risultato.data.id}`);
-      } else {
-        navigate('/clienti');
-      }
-      break;
-    case 'debitore':
-      navigate('/debitori');
-      break;
-    case 'pratica':
-      navigate('/pratiche');
-      break;
-    case 'alert':
-      navigate('/alert');
-      break;
-    case 'ticket':
-      navigate('/ticket');
-      break;
-    default:
-      break;
-  }
-};
+  // === Navigazione al dettaglio ===
+  const visualizzaDettaglio = async (risultato: RisultatoRicerca) => {
+    switch (risultato.tipo) {
+      case 'cliente':
+        if (risultato.data?.id) {
+          navigate(`/clienti/${risultato.data.id}`);
+        } else {
+          navigate('/clienti');
+        }
+        break;
+      case 'debitore':
+        if (risultato.data?.id) {
+          // Trova i clienti collegati al debitore
+          try {
+            const { clientiIds } = await fetchClientiForDebitore(risultato.data.id);
+            if (clientiIds.length > 0) {
+              // Ha almeno un cliente collegato: vai a DebitoriPage con cliente e debitore preselezionati
+              navigate(`/debitori?clienteId=${clientiIds[0]}&debitoreId=${risultato.data.id}`);
+            } else {
+              // Debitore orfano: vai a DebitoriPage con solo il debitore (mostra modale per ricollegarlo)
+              navigate(`/debitori?debitoreId=${risultato.data.id}&orfano=true`);
+            }
+          } catch (err) {
+            console.error('Errore nel recupero clienti per debitore:', err);
+            navigate('/debitori');
+          }
+        } else {
+          navigate('/debitori');
+        }
+        break;
+      case 'pratica':
+        navigate('/pratiche');
+        break;
+      case 'alert':
+        navigate('/alert');
+        break;
+      case 'ticket':
+        navigate('/ticket');
+        break;
+      default:
+        break;
+    }
+  };
 
 
   // === Funzione principale di ricerca (per ora clienti + struttura pronta per il resto) ===
@@ -248,17 +272,24 @@ export function RicercaPage() {
       risultatiTrovati = [...risultatiTrovati, ...clientiTrovati];
     }
 
-    // === DEBITORI (vuoto per ora) ===
+    // === DEBITORI ===
     if (filtroTipo === 'tutti' || filtroTipo === 'debitori') {
       const debitoriTrovati = debitori
-        .filter((d: any) => {
+        .filter((d: Debitore) => {
+          const displayName = getDebitoreDisplayName(d).toLowerCase();
           return (
+            displayName.includes(termine) ||
             d.ragioneSociale?.toLowerCase().includes(termine) ||
+            d.nome?.toLowerCase().includes(termine) ||
+            d.cognome?.toLowerCase().includes(termine) ||
+            d.codiceFiscale?.toLowerCase().includes(termine) ||
+            d.partitaIva?.toLowerCase().includes(termine) ||
             d.email?.toLowerCase().includes(termine) ||
-            d.telefono?.includes(termine)
+            d.telefono?.includes(termine) ||
+            d.citta?.toLowerCase().includes(termine)
           );
         })
-        .map((d: any) => ({ tipo: 'debitore' as const, data: d }));
+        .map((d: Debitore) => ({ tipo: 'debitore' as const, data: d }));
       risultatiTrovati = [...risultatiTrovati, ...debitoriTrovati];
     }
 
@@ -653,25 +684,31 @@ export function RicercaPage() {
 
                         {/* Titolo principale */}
                         <h4 className="mb-1 text-sm font-semibold text-slate-900 dark:text-slate-50">
-                          {risultato.tipo === 'cliente' ||
-                          risultato.tipo === 'debitore'
+                          {risultato.tipo === 'cliente'
                             ? risultato.data.ragioneSociale
-                            : risultato.tipo === 'pratica'
-                              ? getPraticaNome(
-                                  risultato.data.clienteId
-                                    ? risultato.data.id
-                                    : risultato.data.praticaId,
-                                )
-                              : risultato.tipo === 'alert'
-                                ? risultato.data.titolo ?? 'Alert'
-                                : risultato.data.oggetto ?? 'Ticket'}
+                            : risultato.tipo === 'debitore'
+                              ? getDebitoreDisplayName(risultato.data)
+                              : risultato.tipo === 'pratica'
+                                ? getPraticaNome(
+                                    risultato.data.clienteId
+                                      ? risultato.data.id
+                                      : risultato.data.praticaId,
+                                  )
+                                : risultato.tipo === 'alert'
+                                  ? risultato.data.titolo ?? 'Alert'
+                                  : risultato.data.oggetto ?? 'Ticket'}
                         </h4>
 
-                        {/* Dettagli sintetici per ora (principalmente clienti) */}
+                        {/* Dettagli sintetici */}
                         <div className="space-y-0.5 text-[11px] text-slate-600 dark:text-slate-300">
-                          {(risultato.tipo === 'cliente' ||
-                            risultato.tipo === 'debitore') && (
+                          {risultato.tipo === 'cliente' && (
                             <>
+                              {risultato.data.partitaIva && (
+                                <p>
+                                  <span className="font-medium">P.IVA:</span>{' '}
+                                  {risultato.data.partitaIva}
+                                </p>
+                              )}
                               {risultato.data.email && (
                                 <p>
                                   <span className="font-medium">Email:</span>{' '}
@@ -684,13 +721,61 @@ export function RicercaPage() {
                                   {risultato.data.telefono}
                                 </p>
                               )}
-                              {(risultato.data.indirizzo ||
-                                risultato.data.citta) && (
+                              {risultato.data.citta && (
                                 <p>
                                   <span className="font-medium">Sede:</span>{' '}
-                                  {risultato.data.indirizzo}{' '}
-                                  {risultato.data.citta &&
-                                    `- ${risultato.data.citta}`}
+                                  {risultato.data.citta}
+                                  {risultato.data.provincia && ` (${risultato.data.provincia})`}
+                                </p>
+                              )}
+                              {risultato.data.attivo === false && (
+                                <p className="text-amber-600 dark:text-amber-400">
+                                  <span className="font-medium">⚠️ Disattivato</span>
+                                </p>
+                              )}
+                            </>
+                          )}
+
+                          {risultato.tipo === 'debitore' && (
+                            <>
+                              <p>
+                                <span className="font-medium">Tipo:</span>{' '}
+                                {risultato.data.tipoSoggetto === 'persona_fisica' ? 'Persona fisica' : 'Persona giuridica'}
+                              </p>
+                              {risultato.data.codiceFiscale && (
+                                <p>
+                                  <span className="font-medium">C.F.:</span>{' '}
+                                  {risultato.data.codiceFiscale}
+                                </p>
+                              )}
+                              {risultato.data.partitaIva && (
+                                <p>
+                                  <span className="font-medium">P.IVA:</span>{' '}
+                                  {risultato.data.partitaIva}
+                                </p>
+                              )}
+                              {risultato.data.email && (
+                                <p>
+                                  <span className="font-medium">Email:</span>{' '}
+                                  {risultato.data.email}
+                                </p>
+                              )}
+                              {risultato.data.telefono && (
+                                <p>
+                                  <span className="font-medium">Tel:</span>{' '}
+                                  {risultato.data.telefono}
+                                </p>
+                              )}
+                              {risultato.data.citta && (
+                                <p>
+                                  <span className="font-medium">Sede:</span>{' '}
+                                  {risultato.data.citta}
+                                  {risultato.data.provincia && ` (${risultato.data.provincia})`}
+                                </p>
+                              )}
+                              {risultato.data.attivo === false && (
+                                <p className="text-amber-600 dark:text-amber-400">
+                                  <span className="font-medium">⚠️ Disattivato</span>
                                 </p>
                               )}
                             </>

@@ -129,6 +129,14 @@ export function fetchPraticheCountForDebitore(
   return api.get<{ count: number }>(`/debitori/${id}/pratiche-count`);
 }
 
+// ====== Clienti collegati ======
+
+export function fetchClientiForDebitore(
+  debitoreId: string,
+): Promise<{ clientiIds: string[] }> {
+  return api.get<{ clientiIds: string[] }>(`/debitori/${debitoreId}/clienti`);
+}
+
 // ====== Relazione Cliente <-> Debitore ======
 
 export function fetchDebitoriForCliente(

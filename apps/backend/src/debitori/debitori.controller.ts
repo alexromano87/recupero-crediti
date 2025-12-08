@@ -13,10 +13,14 @@ import {
 import { DebitoriService } from './debitori.service';
 import { CreateDebitoreDto } from './dto/create-debitore.dto';
 import { UpdateDebitoreDto } from './dto/update-debitore.dto';
+import { ClientiDebitoriService } from '../relazioni/clienti-debitori.service';
 
 @Controller('debitori')
 export class DebitoriController {
-  constructor(private readonly debitoriService: DebitoriService) {}
+  constructor(
+    private readonly debitoriService: DebitoriService,
+    private readonly clientiDebitoriService: ClientiDebitoriService,
+  ) {}
 
   // GET /debitori -> lista debitori
   // Query param: ?includeInactive=true per includere i disattivati
@@ -29,6 +33,13 @@ export class DebitoriController {
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.debitoriService.findOne(id);
+  }
+
+  // GET /debitori/:id/clienti -> lista clienti collegati al debitore
+  @Get(':id/clienti')
+  async getClientiForDebitore(@Param('id') id: string) {
+    const clientiIds = await this.clientiDebitoriService.getClientiByDebitore(id);
+    return { clientiIds };
   }
 
   // GET /debitori/:id/pratiche-count -> conta pratiche collegate

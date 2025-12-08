@@ -1,4 +1,6 @@
 // apps/frontend/src/pages/DebitoriPage.tsx
+import { useEffect, useState } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import {
   User,
   Building2,
@@ -18,6 +20,24 @@ import { SearchableClienteSelect } from '../components/ui/SearchableClienteSelec
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 
 export function DebitoriPage() {
+  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  
+  // Leggi parametri URL
+  const urlClienteId = searchParams.get('clienteId');
+  const urlDebitoreId = searchParams.get('debitoreId');
+  const isOrfano = searchParams.get('orfano') === 'true';
+
+  // Pulisci l'URL dopo aver letto i parametri
+  const [urlParamsRead, setUrlParamsRead] = useState(false);
+  useEffect(() => {
+    if ((urlClienteId || urlDebitoreId) && !urlParamsRead) {
+      setUrlParamsRead(true);
+      // Pulisci l'URL mantenendo la pagina
+      navigate('/debitori', { replace: true });
+    }
+  }, [urlClienteId, urlDebitoreId, urlParamsRead, navigate]);
+
   const {
     clienti,
     loadingClienti,
@@ -52,7 +72,10 @@ export function DebitoriPage() {
     deactivateDebitore,
     reactivateDebitore,
     deleteDebitore,
-  } = useDebitoriPage();
+  } = useDebitoriPage({
+    initialClienteId: urlClienteId,
+    initialDebitoreId: urlDebitoreId,
+  });
 
   const { confirm, ConfirmDialog } = useConfirmDialog();
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
 import {
   Building2,
   Plus,
@@ -65,6 +66,8 @@ function clienteToFormState(c: Cliente | null): ClienteFormState {
 export function ClientiPage() {
   const { success: toastSuccess, error: toastError } = useToast();
   const { confirm, ConfirmDialog } = useConfirmDialog();
+  const { id: urlClienteId } = useParams<{ id?: string }>();
+  const navigate = useNavigate();
 
   const [clienti, setClienti] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
@@ -79,6 +82,9 @@ export function ClientiPage() {
   const [showForm, setShowForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false); // <-- nuova logica
   const [showInactive, setShowInactive] = useState(false); // <-- mostra/nascondi disattivati
+
+  // Flag per tracciare se abbiamo già gestito il parametro URL
+  const [urlParamHandled, setUrlParamHandled] = useState(false);
 
   const selectedCliente =
     clienti.find((c) => c.id === selectedClienteId) ?? null;
@@ -107,6 +113,34 @@ export function ClientiPage() {
 
     load();
   }, [toastError, showInactive]);
+
+  // --- Gestione parametro URL (seleziona cliente da ricerca) ---
+  useEffect(() => {
+    // Se abbiamo un ID nell'URL e i clienti sono caricati
+    if (urlClienteId && clienti.length > 0 && !urlParamHandled) {
+      const cliente = clienti.find((c) => c.id === urlClienteId);
+      if (cliente) {
+        // Seleziona il cliente e apri il form
+        setSelectedClienteId(cliente.id);
+        setForm(clienteToFormState(cliente));
+        setShowForm(true);
+        setIsEditing(false);
+        setError(null);
+      } else {
+        // Cliente non trovato (potrebbe essere disattivato)
+        // Prova a cercarlo includendo i disattivati
+        if (!showInactive) {
+          setShowInactive(true);
+        } else {
+          toastError('Cliente non trovato', 'Errore');
+          navigate('/clienti', { replace: true });
+        }
+      }
+      setUrlParamHandled(true);
+      // Pulisci l'URL mantenendo la pagina
+      navigate('/clienti', { replace: true });
+    }
+  }, [urlClienteId, clienti, urlParamHandled, showInactive, navigate, toastError]);
 
   // --- Helpers form ---
   const resetForm = () => {

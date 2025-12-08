@@ -107,7 +107,12 @@ function debitoreToFormState(d: Debitore): DebitoreFormState {
   };
 }
 
-export function useDebitoriPage() {
+export interface UseDebitoriPageParams {
+  initialClienteId?: string | null;
+  initialDebitoreId?: string | null;
+}
+
+export function useDebitoriPage(params?: UseDebitoriPageParams) {
   const { success: toastSuccess, error: toastError } = useToast();
 
   // === STATO CLIENTI ===
@@ -125,6 +130,9 @@ export function useDebitoriPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [detailForm, setDetailForm] = useState<DebitoreFormState>(INITIAL_DETAIL_FORM);
   const [savingDetail, setSavingDetail] = useState(false);
+
+  // === FLAG PER GESTIONE PARAMETRI INIZIALI ===
+  const [initialParamsHandled, setInitialParamsHandled] = useState(false);
 
   // === STATO NUOVO DEBITORE ===
   const [showNewForm, setShowNewForm] = useState(false);
@@ -164,6 +172,26 @@ export function useDebitoriPage() {
     loadClienti();
   }, [toastError]);
 
+  // === GESTIONE PARAMETRI INIZIALI (da URL) ===
+  useEffect(() => {
+    if (initialParamsHandled || loadingClienti || clienti.length === 0) return;
+    if (!params?.initialClienteId) {
+      setInitialParamsHandled(true);
+      return;
+    }
+
+    // Cerca il cliente
+    const cliente = clienti.find((c) => c.id === params.initialClienteId);
+    if (cliente) {
+      setSelectedClienteId(cliente.id);
+      // Il debitore verrà selezionato dopo il caricamento dei debitori
+    }
+    setInitialParamsHandled(true);
+  }, [clienti, loadingClienti, params?.initialClienteId, initialParamsHandled]);
+
+  // === FLAG PER SELEZIONE DEBITORE INIZIALE ===
+  const [initialDebitoreSelected, setInitialDebitoreSelected] = useState(false);
+
   // === CARICAMENTO DEBITORI ===
   useEffect(() => {
     if (!selectedClienteId) {
@@ -179,8 +207,12 @@ export function useDebitoriPage() {
         setError(null);
         const data = await fetchDebitoriForCliente(selectedClienteId, showInactive);
         setDebitori(data);
-        setSelectedDebitoreId(null);
-        setIsEditing(false);
+        
+        // Se abbiamo un debitore iniziale da selezionare, non resettare la selezione
+        if (!params?.initialDebitoreId || initialDebitoreSelected) {
+          setSelectedDebitoreId(null);
+          setIsEditing(false);
+        }
       } catch (err: any) {
         console.error(err);
         const msg = err.message || 'Errore nel caricamento dei debitori del cliente';
@@ -192,7 +224,20 @@ export function useDebitoriPage() {
     };
 
     loadDebitori();
-  }, [selectedClienteId, showInactive, toastError]);
+  }, [selectedClienteId, showInactive, toastError, params?.initialDebitoreId, initialDebitoreSelected]);
+
+  // === SELEZIONE DEBITORE INIZIALE (dopo caricamento debitori) ===
+  useEffect(() => {
+    if (initialDebitoreSelected || !params?.initialDebitoreId || loadingDebitori || debitori.length === 0) return;
+
+    const debitore = debitori.find((d) => d.id === params.initialDebitoreId);
+    if (debitore) {
+      setSelectedDebitoreId(debitore.id);
+      setDetailForm(debitoreToFormState(debitore));
+      setIsEditing(false);
+    }
+    setInitialDebitoreSelected(true);
+  }, [debitori, loadingDebitori, params?.initialDebitoreId, initialDebitoreSelected]);
 
   // === HANDLERS CLIENTE ===
   const handleSelectCliente = (clienteId: string | null) => {
