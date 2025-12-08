@@ -25,17 +25,27 @@ let ClientiController = class ClientiController {
         this.clientiService = clientiService;
         this.clientiDebitoriService = clientiDebitoriService;
     }
-    findAll() {
-        return this.clientiService.findAll();
+    findAll(includeInactive) {
+        return this.clientiService.findAll(includeInactive === 'true');
     }
     findOne(id) {
         return this.clientiService.findOne(id);
+    }
+    async getPraticheCount(id) {
+        const count = await this.clientiService.countPraticheCollegate(id);
+        return { count };
     }
     create(dto) {
         return this.clientiService.create(dto);
     }
     update(id, dto) {
         return this.clientiService.update(id, dto);
+    }
+    deactivate(id) {
+        return this.clientiService.deactivate(id);
+    }
+    reactivate(id) {
+        return this.clientiService.reactivate(id);
     }
     remove(id) {
         return this.clientiService.remove(id);
@@ -55,8 +65,9 @@ let ClientiController = class ClientiController {
 exports.ClientiController = ClientiController;
 __decorate([
     (0, common_1.Get)(),
+    __param(0, (0, common_1.Query)('includeInactive')),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", []),
+    __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], ClientiController.prototype, "findAll", null);
 __decorate([
@@ -66,6 +77,13 @@ __decorate([
     __metadata("design:paramtypes", [String]),
     __metadata("design:returntype", void 0)
 ], ClientiController.prototype, "findOne", null);
+__decorate([
+    (0, common_1.Get)(':id/pratiche-count'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], ClientiController.prototype, "getPraticheCount", null);
 __decorate([
     (0, common_1.Post)(),
     __param(0, (0, common_1.Body)()),
@@ -81,6 +99,20 @@ __decorate([
     __metadata("design:paramtypes", [String, update_cliente_dto_1.UpdateClienteDto]),
     __metadata("design:returntype", void 0)
 ], ClientiController.prototype, "update", null);
+__decorate([
+    (0, common_1.Patch)(':id/deactivate'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], ClientiController.prototype, "deactivate", null);
+__decorate([
+    (0, common_1.Patch)(':id/reactivate'),
+    __param(0, (0, common_1.Param)('id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", void 0)
+], ClientiController.prototype, "reactivate", null);
 __decorate([
     (0, common_1.Delete)(':id'),
     __param(0, (0, common_1.Param)('id')),

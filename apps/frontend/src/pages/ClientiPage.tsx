@@ -1,13 +1,24 @@
 import React, { useEffect, useState } from 'react';
-import { Building2, Plus, Trash2 } from 'lucide-react';
+import {
+  Building2,
+  Plus,
+  Trash2,
+  Power,
+  PowerOff,
+  Eye,
+  EyeOff,
+} from 'lucide-react';
 import type { Cliente } from '../api/clienti';
 import {
   fetchClienti,
   createCliente,
   updateCliente,
   deleteCliente,
+  deactivateCliente,
+  reactivateCliente,
 } from '../api/clienti';
 import { useToast } from '../components/ui/ToastProvider';
+import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 
 type ClienteFormState = {
   ragioneSociale: string;
@@ -53,6 +64,7 @@ function clienteToFormState(c: Cliente | null): ClienteFormState {
 
 export function ClientiPage() {
   const { success: toastSuccess, error: toastError } = useToast();
+  const { confirm, ConfirmDialog } = useConfirmDialog();
 
   const [clienti, setClienti] = useState<Cliente[]>([]);
   const [loading, setLoading] = useState(true);
@@ -66,6 +78,7 @@ export function ClientiPage() {
 
   const [showForm, setShowForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false); // <-- nuova logica
+  const [showInactive, setShowInactive] = useState(false); // <-- mostra/nascondi disattivati
 
   const selectedCliente =
     clienti.find((c) => c.id === selectedClienteId) ?? null;
@@ -79,7 +92,7 @@ export function ClientiPage() {
       try {
         setLoading(true);
         setError(null);
-        const data = await fetchClienti();
+        const data = await fetchClienti(showInactive);
         setClienti(data);
       } catch (err: any) {
         console.error(err);
@@ -93,7 +106,7 @@ export function ClientiPage() {
     };
 
     load();
-  }, [toastError]);
+  }, [toastError, showInactive]);
 
   // --- Helpers form ---
   const resetForm = () => {
@@ -101,6 +114,19 @@ export function ClientiPage() {
     setForm(EMPTY_FORM);
     setError(null);
     setIsEditing(false);
+  };
+
+  // Verifica se il form è stato modificato rispetto ai dati originali
+  const isFormDirty = (): boolean => {
+    if (isNew) {
+      // Per nuovo cliente, dirty se almeno un campo non è vuoto
+      return Object.values(form).some((v) => v.trim() !== '');
+    }
+    if (!selectedCliente) return false;
+    const original = clienteToFormState(selectedCliente);
+    return Object.keys(form).some(
+      (key) => form[key as keyof ClienteFormState] !== original[key as keyof ClienteFormState],
+    );
   };
 
   const handleNewCliente = () => {
@@ -134,6 +160,24 @@ export function ClientiPage() {
       toastError(msg, 'Dati mancanti');
       return;
     }
+
+    // Conferma salvataggio
+    const conferma = await confirm({
+      title: isNew ? 'Creare il cliente?' : 'Salvare le modifiche?',
+      message: isNew ? (
+        <>
+          Stai per creare il cliente <strong>{form.ragioneSociale.trim()}</strong>.
+        </>
+      ) : (
+        <>
+          Stai per salvare le modifiche al cliente <strong>{form.ragioneSociale.trim()}</strong>.
+        </>
+      ),
+      confirmText: isNew ? 'Crea cliente' : 'Salva modifiche',
+      cancelText: 'Annulla',
+      variant: 'default',
+    });
+    if (!conferma) return;
 
     try {
       setSaving(true);
@@ -185,9 +229,21 @@ export function ClientiPage() {
 
   // --- Eliminazione cliente ---
   const handleDelete = async (cliente: Cliente) => {
-    const conferma = window.confirm(
-      `Eliminare definitivamente il cliente "${cliente.ragioneSociale}"?`,
-    );
+    const conferma = await confirm({
+      title: 'Eliminare definitivamente?',
+      message: (
+        <>
+          Stai per eliminare il cliente <strong>{cliente.ragioneSociale}</strong>.
+          <br />
+          <span className="text-rose-600 dark:text-rose-400">
+            Questa azione è irreversibile.
+          </span>
+        </>
+      ),
+      confirmText: 'Elimina',
+      cancelText: 'Annulla',
+      variant: 'danger',
+    });
     if (!conferma) return;
 
     try {
@@ -200,10 +256,102 @@ export function ClientiPage() {
       toastSuccess('Cliente eliminato', 'Operazione riuscita');
     } catch (err: any) {
       console.error(err);
-      const msg =
-        err?.message || 'Errore durante l’eliminazione del cliente';
+      const msg = err?.message || 'Errore durante l\'eliminazione del cliente';
       setError(msg);
       toastError(msg, 'Errore eliminazione');
+    }
+  };
+
+  // --- Disattivazione cliente (soft-delete) ---
+  const handleDeactivate = async (cliente: Cliente) => {
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 763e3d2 (inserimento finestre di dialogo pagina clienti)
+    const conferma = await confirm({
+      title: 'Disattivare cliente?',
+      message: (
+        <>
+          Stai per disattivare il cliente <strong>{cliente.ragioneSociale}</strong>.
+          <br />
+          <span className="text-slate-500 dark:text-slate-400">
+            Il cliente non sarà più visibile nella lista principale ma potrà essere riattivato.
+          </span>
+        </>
+      ),
+      confirmText: 'Disattiva',
+      cancelText: 'Annulla',
+      variant: 'warning',
+    });
+<<<<<<< HEAD
+=======
+    const conferma = window.confirm(
+      `Disattivare il cliente "${cliente.ragioneSociale}"?\n\nIl cliente non sarà più visibile nella lista principale ma potrà essere riattivato.`,
+    );
+>>>>>>> 9bfb883 (aggiunta funzione attiva/disattiva cliente)
+=======
+>>>>>>> 763e3d2 (inserimento finestre di dialogo pagina clienti)
+    if (!conferma) return;
+
+    try {
+      const updated = await deactivateCliente(cliente.id);
+      if (showInactive) {
+        setClienti((prev) =>
+          prev.map((c) => (c.id === updated.id ? updated : c)),
+        );
+      } else {
+        setClienti((prev) => prev.filter((c) => c.id !== cliente.id));
+      }
+      if (selectedClienteId === cliente.id) {
+        resetForm();
+        setShowForm(false);
+      }
+      toastSuccess('Cliente disattivato', 'Operazione riuscita');
+    } catch (err: any) {
+      console.error(err);
+      const msg = err?.message || 'Errore durante la disattivazione';
+      toastError(msg, 'Errore disattivazione');
+    }
+  };
+
+  // --- Riattivazione cliente ---
+  const handleReactivate = async (cliente: Cliente) => {
+<<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> 763e3d2 (inserimento finestre di dialogo pagina clienti)
+    const conferma = await confirm({
+      title: 'Riattivare cliente?',
+      message: (
+        <>
+          Stai per riattivare il cliente <strong>{cliente.ragioneSociale}</strong>.
+          <br />
+          <span className="text-slate-500 dark:text-slate-400">
+            Il cliente tornerà visibile nella lista principale.
+          </span>
+        </>
+      ),
+      confirmText: 'Riattiva',
+      cancelText: 'Annulla',
+      variant: 'info',
+    });
+    if (!conferma) return;
+
+<<<<<<< HEAD
+=======
+>>>>>>> 9bfb883 (aggiunta funzione attiva/disattiva cliente)
+=======
+>>>>>>> 763e3d2 (inserimento finestre di dialogo pagina clienti)
+    try {
+      const updated = await reactivateCliente(cliente.id);
+      setClienti((prev) =>
+        prev.map((c) => (c.id === updated.id ? updated : c)),
+      );
+      toastSuccess('Cliente riattivato', 'Operazione riuscita');
+    } catch (err: any) {
+      console.error(err);
+      const msg = err?.message || 'Errore durante la riattivazione';
+      toastError(msg, 'Errore riattivazione');
     }
   };
 
@@ -224,17 +372,53 @@ export function ClientiPage() {
     ? 'Annulla modifiche'
     : 'Chiudi';
 
-  const handleSecondaryClick = () => {
+  const handleSecondaryClick = async () => {
     if (isNew) {
-      // nuovo cliente: chiudo e pulisco
+      // Nuovo cliente: chiedo conferma solo se ci sono dati inseriti
+      if (isFormDirty()) {
+        const conferma = await confirm({
+          title: 'Annullare la creazione?',
+          message: (
+            <>
+              Hai inserito dei dati nel form.
+              <br />
+              <span className="text-slate-500 dark:text-slate-400">
+                Se annulli, le informazioni inserite andranno perse.
+              </span>
+            </>
+          ),
+          confirmText: 'Sì, annulla',
+          cancelText: 'Continua a modificare',
+          variant: 'warning',
+        });
+        if (!conferma) return;
+      }
       resetForm();
       setShowForm(false);
     } else if (isEditing) {
-      // annulla modifiche: ripristino dati originali
+      // Annulla modifiche: chiedo conferma solo se il form è stato modificato
+      if (isFormDirty()) {
+        const conferma = await confirm({
+          title: 'Annullare le modifiche?',
+          message: (
+            <>
+              Hai modificato i dati del cliente.
+              <br />
+              <span className="text-slate-500 dark:text-slate-400">
+                Se annulli, le modifiche non salvate andranno perse.
+              </span>
+            </>
+          ),
+          confirmText: 'Sì, annulla modifiche',
+          cancelText: 'Continua a modificare',
+          variant: 'warning',
+        });
+        if (!conferma) return;
+      }
       if (selectedCliente) setForm(clienteToFormState(selectedCliente));
       setIsEditing(false);
     } else {
-      // solo chiudi vista
+      // Solo chiudi vista (nessuna conferma necessaria)
       setShowForm(false);
     }
   };
@@ -468,14 +652,37 @@ export function ClientiPage() {
             <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
               Elenco clienti
             </h3>
-            <button
-              type="button"
-              onClick={handleNewCliente}
-              className="hidden items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-medium text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 dark:bg-indigo-500 dark:hover:bg-indigo-400 md:inline-flex"
-            >
-              <Plus className="h-3 w-3" />
-              Nuovo cliente
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Toggle mostra disattivati */}
+              <button
+                type="button"
+                onClick={() => setShowInactive((prev) => !prev)}
+                className={
+                  'inline-flex items-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] font-medium transition ' +
+                  (showInactive
+                    ? 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-300'
+                    : 'border-slate-300 text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-800')
+                }
+                title={showInactive ? 'Nascondi disattivati' : 'Mostra disattivati'}
+              >
+                {showInactive ? (
+                  <EyeOff className="h-3 w-3" />
+                ) : (
+                  <Eye className="h-3 w-3" />
+                )}
+                <span className="hidden sm:inline">
+                  {showInactive ? 'Nascondi disattivati' : 'Mostra disattivati'}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={handleNewCliente}
+                className="hidden items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-medium text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 dark:bg-indigo-500 dark:hover:bg-indigo-400 md:inline-flex"
+              >
+                <Plus className="h-3 w-3" />
+                Nuovo cliente
+              </button>
+            </div>
           </div>
 
           {loading ? (
@@ -500,6 +707,7 @@ export function ClientiPage() {
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                   {clienti.map((c) => {
                     const isSelected = c.id === selectedClienteId;
+                    const isInactive = c.attivo === false;
                     return (
                       <tr
                         key={c.id}
@@ -508,14 +716,29 @@ export function ClientiPage() {
                           'cursor-pointer hover:bg-slate-50/80 dark:hover:bg-slate-900/60 ' +
                           (isSelected
                             ? 'bg-indigo-50/70 dark:bg-indigo-900/30'
-                            : '')
+                            : '') +
+                          (isInactive ? ' opacity-60' : '')
                         }
                       >
                         <td className="px-3 py-2 font-medium text-slate-900 dark:text-slate-50">
                           <div className="flex items-center gap-2">
-                            <Building2 className="h-3 w-3 text-slate-400" />
+                            <Building2
+                              className={
+                                'h-3 w-3 ' +
+                                (isInactive
+                                  ? 'text-slate-300 dark:text-slate-600'
+                                  : 'text-slate-400')
+                              }
+                            />
                             <div className="flex flex-col">
-                              <span>{c.ragioneSociale}</span>
+                              <div className="flex items-center gap-2">
+                                <span>{c.ragioneSociale}</span>
+                                {isInactive && (
+                                  <span className="rounded bg-slate-200 px-1.5 py-0.5 text-[9px] font-semibold uppercase text-slate-500 dark:bg-slate-700 dark:text-slate-400">
+                                    Disattivato
+                                  </span>
+                                )}
+                              </div>
                               <span className="text-[11px] text-slate-400">
                                 {c.partitaIva
                                   ? `P.IVA ${c.partitaIva}`
@@ -534,14 +757,42 @@ export function ClientiPage() {
                           className="px-3 py-2 text-right"
                           onClick={(e) => e.stopPropagation()}
                         >
-                          <button
-                            type="button"
-                            onClick={() => handleDelete(c)}
-                            className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-300"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                            Elimina
-                          </button>
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Bottone Disattiva/Riattiva */}
+                            {isInactive ? (
+                              <button
+                                type="button"
+                                onClick={() => handleReactivate(c)}
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-emerald-600 hover:text-emerald-800 dark:text-emerald-400 dark:hover:text-emerald-300"
+                                title="Riattiva cliente"
+                              >
+                                <Power className="h-3 w-3" />
+                                <span className="hidden sm:inline">Riattiva</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => handleDeactivate(c)}
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-600 hover:text-amber-800 dark:text-amber-400 dark:hover:text-amber-300"
+                                title="Disattiva cliente"
+                              >
+                                <PowerOff className="h-3 w-3" />
+                                <span className="hidden sm:inline">Disattiva</span>
+                              </button>
+                            )}
+                            {/* Bottone Elimina (solo per disattivati o senza pratiche) */}
+                            {isInactive && (
+                              <button
+                                type="button"
+                                onClick={() => handleDelete(c)}
+                                className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-600 hover:text-rose-800 dark:text-rose-400 dark:hover:text-rose-300"
+                                title="Elimina definitivamente"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                                <span className="hidden sm:inline">Elimina</span>
+                              </button>
+                            )}
+                          </div>
                         </td>
                       </tr>
                     );
@@ -552,6 +803,9 @@ export function ClientiPage() {
           )}
         </section>
       </div>
+
+      {/* Dialogo di conferma */}
+      <ConfirmDialog />
     </div>
   );
 }

@@ -1,5 +1,9 @@
 // src/debitori/debitori.service.ts
-import { Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Debitore } from './debitore.entity';
@@ -15,72 +19,146 @@ export class DebitoriService {
     private readonly clientiDebitoriService: ClientiDebitoriService,
   ) {}
 
-  async findAll(): Promise<Debitore[]> {
+  /**
+   * Restituisce tutti i debitori.
+   * @param includeInactive - se true, include anche i debitori disattivati
+   */
+  async findAll(includeInactive = false): Promise<Debitore[]> {
+    const where = includeInactive ? {} : { attivo: true };
     return this.repo.find({
+      where,
       order: { createdAt: 'DESC' },
     });
   }
 
-  async findOne(id: string): Promise<Debitore | null> {
-    return this.repo.findOne({ where: { id } });
+  async findOne(id: string): Promise<Debitore> {
+    const debitore = await this.repo.findOne({ where: { id } });
+    if (!debitore) {
+      throw new NotFoundException(`Debitore con ID ${id} non trovato`);
+    }
+    return debitore;
   }
 
   async create(dto: CreateDebitoreDto): Promise<Debitore> {
     const { clientiIds, ...rest } = dto;
 
+    // Verifica duplicati per Codice Fiscale
+    if (rest.codiceFiscale) {
+      const existing = await this.repo.findOne({
+        where: { codiceFiscale: rest.codiceFiscale },
+      });
+      if (existing) {
+        throw new ConflictException(
+          'Esiste già un debitore con questo Codice Fiscale',
+        );
+      }
+    }
+
     const debitore = this.repo.create({
       ...rest,
-      dataNascita: rest.dataNascita
-        ? new Date(rest.dataNascita)
-        : undefined,
+      dataNascita: rest.dataNascita ? new Date(rest.dataNascita) : undefined,
     });
 
     const saved = await this.repo.save(debitore);
 
-    if (!clientiIds || clientiIds.length === 0) {
-      // se vuoi essere rigido: throw new BadRequestException('È necessario almeno un cliente.');
-      return saved;
+    // Collega ai clienti se specificati
+    if (clientiIds && clientiIds.length > 0) {
+      for (const clienteId of clientiIds) {
+        await this.clientiDebitoriService.linkDebitoreToCliente(
+          clienteId,
+          saved.id,
+        );
+      }
     }
-
-    await this.clientiDebitoriService.setDebitoriForCliente(
-      clientiIds[0],
-      [saved.id],
-    );
-
-    // Se vuoi supportare subito più clienti:
-    // for (const clienteId of clientiIds) {
-    //   await this.clientiDebitoriService.setDebitoriForCliente(clienteId, [...debitori già collegati, saved.id]);
-    // }
 
     return saved;
   }
 
-  async update(id: string, dto: UpdateDebitoreDto): Promise<Debitore | null> {
+  async update(id: string, dto: UpdateDebitoreDto): Promise<Debitore> {
+    const debitore = await this.findOne(id);
     const { clientiIds, ...rest } = dto;
+
+    // Se sta cambiando CF, verifica duplicati
+    if (rest.codiceFiscale && rest.codiceFiscale !== debitore.codiceFiscale) {
+      const existing = await this.repo.findOne({
+        where: { codiceFiscale: rest.codiceFiscale },
+      });
+      if (existing && existing.id !== id) {
+        throw new ConflictException(
+          'Esiste già un debitore con questo Codice Fiscale',
+        );
+      }
+    }
 
     await this.repo.update(
       { id },
       {
         ...rest,
-        dataNascita: rest.dataNascita
-          ? new Date(rest.dataNascita)
-          : undefined,
+        dataNascita: rest.dataNascita ? new Date(rest.dataNascita) : undefined,
       },
     );
 
-    if (clientiIds && clientiIds.length > 0) {
-      // logica: se passi clientiIds, potresti voler riallineare, ma qui
-      // serve decidere esattamente cosa vuoi fare (per ora possiamo lasciarlo in sospeso).
-      // Possiamo decidere:
-      // - gestire i link solo da lato /clienti/:id/debitori
-      // - oppure aggiornare qui per tutti i clientiIds
-    }
+    // Gestione clientiIds se specificati (opzionale)
+    // Per ora lasciamo la gestione dei link a /clienti/:id/debitori
 
     return this.findOne(id);
   }
 
+  /**
+   * Disattiva un debitore (soft-delete).
+   */
+  async deactivate(id: string): Promise<Debitore> {
+    const debitore = await this.findOne(id);
+
+    // TODO: Quando avremo le Pratiche, verificare che non ci siano pratiche aperte
+    // const praticheAperte = await this.praticheRepo.count({
+    //   where: { debitoreId: id, stato: Not('chiusa') }
+    // });
+    // if (praticheAperte > 0) {
+    //   throw new ConflictException(
+    //     `Impossibile disattivare: il debitore ha ${praticheAperte} pratiche aperte`
+    //   );
+    // }
+
+    await this.repo.update({ id }, { attivo: false });
+    return { ...debitore, attivo: false };
+  }
+
+  /**
+   * Riattiva un debitore precedentemente disattivato.
+   */
+  async reactivate(id: string): Promise<Debitore> {
+    const debitore = await this.findOne(id);
+    await this.repo.update({ id }, { attivo: true });
+    return { ...debitore, attivo: true };
+  }
+
+  /**
+   * Elimina fisicamente un debitore.
+   * ATTENZIONE: Usare solo se non ci sono relazioni.
+   */
   async remove(id: string): Promise<void> {
-    // qui potresti controllare che non ci siano pratiche collegate prima di cancellare
+    await this.findOne(id); // Verifica esistenza
+
+    // TODO: Quando avremo le Pratiche, bloccare se ci sono pratiche collegate
+    // const praticheCollegate = await this.praticheRepo.count({
+    //   where: { debitoreId: id }
+    // });
+    // if (praticheCollegate > 0) {
+    //   throw new ConflictException(
+    //     `Impossibile eliminare: il debitore è collegato a ${praticheCollegate} pratiche`
+    //   );
+    // }
+
     await this.repo.delete({ id });
+  }
+
+  /**
+   * Conta le pratiche collegate a un debitore.
+   * Per ora ritorna 0, verrà implementato quando avremo l'entity Pratica.
+   */
+  async countPraticheCollegate(id: string): Promise<number> {
+    // TODO: Implementare quando avremo l'entity Pratica
+    return 0;
   }
 }

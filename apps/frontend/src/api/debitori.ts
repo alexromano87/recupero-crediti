@@ -1,9 +1,17 @@
 // apps/frontend/src/api/debitori.ts
-import type { Cliente } from './clienti';
-
-const API_BASE_URL = 'http://localhost:3000';
+import { api } from './config';
 
 export type TipoSoggetto = 'persona_fisica' | 'persona_giuridica';
+
+export type TipologiaAzienda =
+  | 'impresa_individuale'
+  | 'impresa_individuale_agricola'
+  | 'srl'
+  | 'spa'
+  | 'scpa'
+  | 'srl_agricola'
+  | 'snc'
+  | 'sas';
 
 export interface Debitore {
   id: string;
@@ -19,7 +27,7 @@ export interface Debitore {
   // persona giuridica
   ragioneSociale?: string;
   partitaIva?: string;
-  tipologia?: string;
+  tipologia?: TipologiaAzienda;
   sedeLegale?: string;
   sedeOperativa?: string;
 
@@ -34,6 +42,8 @@ export interface Debitore {
   telefono?: string;
   email?: string;
   pec?: string;
+
+  attivo: boolean;
 
   createdAt: string;
   updatedAt: string;
@@ -50,7 +60,7 @@ export type DebitoreCreatePayload = {
 
   ragioneSociale?: string;
   partitaIva?: string;
-  tipologia?: string;
+  tipologia?: TipologiaAzienda;
   sedeLegale?: string;
   sedeOperativa?: string;
 
@@ -69,54 +79,71 @@ export type DebitoreCreatePayload = {
   clientiIds: string[];
 };
 
-// Debitori collegati a un cliente specifico
-export async function fetchDebitoriForCliente(
-  clienteId: string,
-): Promise<Debitore[]> {
-  const res = await fetch(`${API_BASE_URL}/clienti/${clienteId}/debitori`);
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(
-      text || 'Errore nel recupero dei debitori per il cliente selezionato',
-    );
-  }
-  return res.json();
+export type DebitoreUpdatePayload = Partial<
+  Omit<DebitoreCreatePayload, 'clientiIds'>
+>;
+
+// ====== CRUD Debitori ======
+
+export function fetchDebitori(includeInactive = false): Promise<Debitore[]> {
+  const params = includeInactive ? { includeInactive: 'true' } : undefined;
+  return api.get<Debitore[]>('/debitori', params);
 }
 
-// Creazione debitore agganciato al cliente
-export async function createDebitore(
+export function fetchDebitore(id: string): Promise<Debitore> {
+  return api.get<Debitore>(`/debitori/${id}`);
+}
+
+export function createDebitore(
   payload: DebitoreCreatePayload,
 ): Promise<Debitore> {
-  const res = await fetch(`${API_BASE_URL}/debitori`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(payload),
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || 'Errore nella creazione del debitore');
-  }
-
-  return res.json();
+  return api.post<Debitore>('/debitori', payload);
 }
 
-// Scollega un debitore da un cliente (non cancella l’anagrafica)
-export async function unlinkDebitoreFromCliente(
+export function updateDebitore(
+  id: string,
+  payload: DebitoreUpdatePayload,
+): Promise<Debitore> {
+  return api.put<Debitore>(`/debitori/${id}`, payload);
+}
+
+export function deleteDebitore(id: string): Promise<void> {
+  return api.delete<void>(`/debitori/${id}`);
+}
+
+// ====== Soft-delete ======
+
+export function deactivateDebitore(id: string): Promise<Debitore> {
+  return api.patch<Debitore>(`/debitori/${id}/deactivate`);
+}
+
+export function reactivateDebitore(id: string): Promise<Debitore> {
+  return api.patch<Debitore>(`/debitori/${id}/reactivate`);
+}
+
+// ====== Pratiche count ======
+
+export function fetchPraticheCountForDebitore(
+  id: string,
+): Promise<{ count: number }> {
+  return api.get<{ count: number }>(`/debitori/${id}/pratiche-count`);
+}
+
+// ====== Relazione Cliente <-> Debitore ======
+
+export function fetchDebitoriForCliente(clienteId: string): Promise<Debitore[]> {
+  return api.get<Debitore[]>(`/clienti/${clienteId}/debitori`);
+}
+
+export function unlinkDebitoreFromCliente(
   clienteId: string,
   debitoreId: string,
 ): Promise<void> {
-  const res = await fetch(
-    `${API_BASE_URL}/clienti/${clienteId}/debitori/${debitoreId}`,
-    { method: 'DELETE' },
-  );
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(text || 'Errore nello scollegamento del debitore');
-  }
+  return api.delete<void>(`/clienti/${clienteId}/debitori/${debitoreId}`);
 }
 
-// Helper per nome visualizzato
+// ====== Helper functions ======
+
 export function getDebitoreDisplayName(d: Debitore): string {
   if (d.tipoSoggetto === 'persona_fisica') {
     const full = `${d.nome ?? ''} ${d.cognome ?? ''}`.trim();

@@ -17,6 +17,7 @@ let Cliente = class Cliente {
     id;
     createdAt;
     updatedAt;
+    attivo;
     ragioneSociale;
     codiceFiscale;
     partitaIva;
@@ -47,6 +48,10 @@ __decorate([
     (0, typeorm_1.UpdateDateColumn)(),
     __metadata("design:type", Date)
 ], Cliente.prototype, "updatedAt", void 0);
+__decorate([
+    (0, typeorm_1.Column)({ default: true }),
+    __metadata("design:type", Boolean)
+], Cliente.prototype, "attivo", void 0);
 __decorate([
     (0, typeorm_1.Column)(),
     __metadata("design:type", String)

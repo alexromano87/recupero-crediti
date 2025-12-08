@@ -6,8 +6,10 @@ import {
   Delete,
   Get,
   Param,
+  Patch,
   Post,
   Put,
+  Query,
 } from '@nestjs/common';
 import { ClientiService } from './clienti.service';
 import { CreateClienteDto } from './dto/create-cliente.dto';
@@ -23,16 +25,24 @@ export class ClientiController {
 
   // ====== CRUD BASE CLIENTI ======
 
-  // GET /clienti  -> usato dalla lista clienti nel frontend
+  // GET /clienti  -> lista clienti
+  // Query param: ?includeInactive=true per includere i disattivati
   @Get()
-  findAll() {
-    return this.clientiService.findAll();
+  findAll(@Query('includeInactive') includeInactive?: string) {
+    return this.clientiService.findAll(includeInactive === 'true');
   }
 
-  // GET /clienti/:id  -> se ti serve il dettaglio di un singolo cliente
+  // GET /clienti/:id  -> dettaglio singolo cliente
   @Get(':id')
   findOne(@Param('id') id: string) {
     return this.clientiService.findOne(id);
+  }
+
+  // GET /clienti/:id/pratiche-count -> conta pratiche collegate
+  @Get(':id/pratiche-count')
+  async getPraticheCount(@Param('id') id: string) {
+    const count = await this.clientiService.countPraticheCollegate(id);
+    return { count };
   }
 
   // POST /clienti  -> creazione nuovo cliente
@@ -47,7 +57,20 @@ export class ClientiController {
     return this.clientiService.update(id, dto);
   }
 
-  // DELETE /clienti/:id  -> eliminazione cliente
+  // PATCH /clienti/:id/deactivate -> disattiva cliente (soft-delete)
+  @Patch(':id/deactivate')
+  deactivate(@Param('id') id: string) {
+    return this.clientiService.deactivate(id);
+  }
+
+  // PATCH /clienti/:id/reactivate -> riattiva cliente
+  @Patch(':id/reactivate')
+  reactivate(@Param('id') id: string) {
+    return this.clientiService.reactivate(id);
+  }
+
+  // DELETE /clienti/:id  -> eliminazione fisica cliente
+  // ATTENZIONE: preferire deactivate nella maggior parte dei casi
   @Delete(':id')
   remove(@Param('id') id: string) {
     return this.clientiService.remove(id);

@@ -12,8 +12,8 @@ import { ClientiDebitoriModule } from './relazioni/clienti-debitori.module';
       isGlobal: true,
       envFilePath: '.env',
     }),
-    // Configura TypeORM con variabili d'ambiente
 
+    // Configurazione TypeORM con variabili d'ambiente
     TypeOrmModule.forRootAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -29,6 +29,7 @@ import { ClientiDebitoriModule } from './relazioni/clienti-debitori.module';
         synchronize: configService.get<string>('NODE_ENV') !== 'production',
       }),
     }),
+
     ClientiModule,
     DebitoriModule,
     ClientiDebitoriModule,

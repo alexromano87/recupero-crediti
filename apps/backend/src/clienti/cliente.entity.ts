@@ -29,6 +29,10 @@ export class Cliente {
   @UpdateDateColumn()
   updatedAt: Date;
 
+  // --- Stato attivo/disattivato (soft-delete) ---
+  @Column({ default: true })
+  attivo: boolean;
+
   @Column()
   ragioneSociale: string;
 
@@ -46,7 +50,6 @@ export class Cliente {
   @Column({ nullable: true })
   sedeOperativa?: string;
 
-  // Manteniamo anche i campi granulari già usati dal frontend
   @Column({ nullable: true })
   indirizzo?: string;
 
