@@ -1,6 +1,6 @@
 // apps/frontend/src/pages/DebitoriPage.tsx
 import { useEffect, useState } from 'react';
-import { useSearchParams, useNavigate } from 'react-router-dom';
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom';
 import {
   User,
   Building2,
@@ -22,21 +22,37 @@ import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 export function DebitoriPage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   
-  // Leggi parametri URL
-  const urlClienteId = searchParams.get('clienteId');
-  const urlDebitoreId = searchParams.get('debitoreId');
-  const isOrfano = searchParams.get('orfano') === 'true';
-
-  // Pulisci l'URL dopo aver letto i parametri
-  const [urlParamsRead, setUrlParamsRead] = useState(false);
-  useEffect(() => {
-    if ((urlClienteId || urlDebitoreId) && !urlParamsRead) {
-      setUrlParamsRead(true);
-      // Pulisci l'URL mantenendo la pagina
-      navigate('/debitori', { replace: true });
+  // Leggi parametri da URL query params O da location state (dalla modale)
+  const [initialParams] = useState(() => {
+    // Prima controlla location state (dalla modale DebitoreDetailModal)
+    const locationState = location.state as { clienteId?: string; debitoreId?: string } | null;
+    if (locationState?.clienteId || locationState?.debitoreId) {
+      return {
+        clienteId: locationState.clienteId || null,
+        debitoreId: locationState.debitoreId || null,
+        isOrfano: false,
+      };
     }
-  }, [urlClienteId, urlDebitoreId, urlParamsRead, navigate]);
+    
+    // Altrimenti usa query params (fallback)
+    return {
+      clienteId: searchParams.get('clienteId'),
+      debitoreId: searchParams.get('debitoreId'),
+      isOrfano: searchParams.get('orfano') === 'true',
+    };
+  });
+
+  // Pulisci l'URL/state dopo aver salvato i parametri
+  const [urlCleaned, setUrlCleaned] = useState(false);
+  useEffect(() => {
+    if ((initialParams.clienteId || initialParams.debitoreId) && !urlCleaned) {
+      setUrlCleaned(true);
+      // Pulisci l'URL e lo state mantenendo la pagina
+      navigate('/debitori', { replace: true, state: null });
+    }
+  }, [initialParams.clienteId, initialParams.debitoreId, urlCleaned, navigate]);
 
   const {
     clienti,
@@ -73,8 +89,8 @@ export function DebitoriPage() {
     reactivateDebitore,
     deleteDebitore,
   } = useDebitoriPage({
-    initialClienteId: urlClienteId,
-    initialDebitoreId: urlDebitoreId,
+    initialClienteId: initialParams.clienteId,
+    initialDebitoreId: initialParams.debitoreId,
   });
 
   const { confirm, ConfirmDialog } = useConfirmDialog();

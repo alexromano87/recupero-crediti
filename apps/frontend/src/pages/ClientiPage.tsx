@@ -8,6 +8,8 @@ import {
   PowerOff,
   Eye,
   EyeOff,
+  Search,
+  X,
 } from 'lucide-react';
 import type { Cliente } from '../api/clienti';
 import {
@@ -82,12 +84,28 @@ export function ClientiPage() {
   const [showForm, setShowForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false); // <-- nuova logica
   const [showInactive, setShowInactive] = useState(false); // <-- mostra/nascondi disattivati
+  const [searchTerm, setSearchTerm] = useState(''); // <-- filtro ricerca
 
   // Flag per tracciare se abbiamo già gestito il parametro URL
   const [urlParamHandled, setUrlParamHandled] = useState(false);
 
   const selectedCliente =
     clienti.find((c) => c.id === selectedClienteId) ?? null;
+
+  // Filtra clienti in base al termine di ricerca
+  const filteredClienti = React.useMemo(() => {
+    if (!searchTerm.trim()) return clienti;
+    const term = searchTerm.toLowerCase().trim();
+    return clienti.filter((c) =>
+      c.ragioneSociale?.toLowerCase().includes(term) ||
+      c.partitaIva?.toLowerCase().includes(term) ||
+      c.codiceFiscale?.toLowerCase().includes(term) ||
+      c.email?.toLowerCase().includes(term) ||
+      c.telefono?.includes(term) ||
+      c.citta?.toLowerCase().includes(term) ||
+      c.indirizzo?.toLowerCase().includes(term)
+    );
+  }, [clienti, searchTerm]);
 
   const isNew = !selectedClienteId; // true se sto creando
   const isFormReadOnly = !!selectedClienteId && !isEditing;
@@ -661,41 +679,73 @@ export function ClientiPage() {
             (showForm ? 'md:basis-7/12' : 'md:basis-full')
           }
         >
-          <div className="mb-3 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
-              Elenco clienti
-            </h3>
-            <div className="flex items-center gap-2">
-              {/* Toggle mostra disattivati */}
-              <button
-                type="button"
-                onClick={() => setShowInactive((prev) => !prev)}
-                className={
-                  'inline-flex items-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] font-medium transition ' +
-                  (showInactive
-                    ? 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-300'
-                    : 'border-slate-300 text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-800')
-                }
-                title={showInactive ? 'Nascondi disattivati' : 'Mostra disattivati'}
-              >
-                {showInactive ? (
-                  <EyeOff className="h-3 w-3" />
-                ) : (
-                  <Eye className="h-3 w-3" />
-                )}
-                <span className="hidden sm:inline">
-                  {showInactive ? 'Nascondi disattivati' : 'Mostra disattivati'}
-                </span>
-              </button>
-              <button
-                type="button"
-                onClick={handleNewCliente}
-                className="hidden items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-medium text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 dark:bg-indigo-500 dark:hover:bg-indigo-400 md:inline-flex"
-              >
-                <Plus className="h-3 w-3" />
-                Nuovo cliente
-              </button>
+          <div className="mb-3 flex flex-col gap-3">
+            {/* Header con titolo e bottoni */}
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-900 dark:text-slate-50">
+                Elenco clienti
+              </h3>
+              <div className="flex items-center gap-2">
+                {/* Toggle mostra disattivati */}
+                <button
+                  type="button"
+                  onClick={() => setShowInactive((prev) => !prev)}
+                  className={
+                    'inline-flex items-center gap-1 rounded-lg border px-2 py-1.5 text-[11px] font-medium transition ' +
+                    (showInactive
+                      ? 'border-amber-300 bg-amber-50 text-amber-700 dark:border-amber-600 dark:bg-amber-900/30 dark:text-amber-300'
+                      : 'border-slate-300 text-slate-600 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-400 dark:hover:bg-slate-800')
+                  }
+                  title={showInactive ? 'Nascondi disattivati' : 'Mostra disattivati'}
+                >
+                  {showInactive ? (
+                    <EyeOff className="h-3 w-3" />
+                  ) : (
+                    <Eye className="h-3 w-3" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {showInactive ? 'Nascondi disattivati' : 'Mostra disattivati'}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleNewCliente}
+                  className="hidden items-center gap-1 rounded-lg bg-indigo-600 px-3 py-2 text-[11px] font-medium text-white shadow-sm transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 dark:bg-indigo-500 dark:hover:bg-indigo-400 md:inline-flex"
+                >
+                  <Plus className="h-3 w-3" />
+                  Nuovo cliente
+                </button>
+              </div>
             </div>
+
+            {/* Campo di ricerca */}
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Cerca per nome, P.IVA, città, email..."
+                className="w-full rounded-lg border border-slate-300 bg-white py-2 pl-9 pr-9 text-xs text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:placeholder:text-slate-500 dark:focus:border-indigo-400 dark:focus:ring-indigo-500/30"
+              />
+              {searchTerm && (
+                <button
+                  type="button"
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Conteggio risultati */}
+            {searchTerm && (
+              <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                {filteredClienti.length} cliente{filteredClienti.length !== 1 ? 'i' : ''} trovato{filteredClienti.length !== 1 ? 'i' : ''}
+                {filteredClienti.length !== clienti.length && ` su ${clienti.length}`}
+              </p>
+            )}
           </div>
 
           {loading ? (
@@ -707,6 +757,20 @@ export function ClientiPage() {
               Nessun cliente presente. Usa &quot;Nuovo cliente&quot; per
               inserirne uno.
             </p>
+          ) : filteredClienti.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-8 text-center">
+              <Search className="mb-2 h-8 w-8 text-slate-300 dark:text-slate-600" />
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Nessun cliente trovato per &quot;{searchTerm}&quot;
+              </p>
+              <button
+                type="button"
+                onClick={() => setSearchTerm('')}
+                className="mt-2 text-xs text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300"
+              >
+                Cancella ricerca
+              </button>
+            </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="min-w-full text-left text-xs">
@@ -718,7 +782,7 @@ export function ClientiPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {clienti.map((c) => {
+                  {filteredClienti.map((c) => {
                     const isSelected = c.id === selectedClienteId;
                     const isInactive = c.attivo === false;
                     return (

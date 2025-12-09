@@ -4,6 +4,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ClientiModule } from './clienti/clienti.module';
 import { DebitoriModule } from './debitori/debitori.module';
 import { ClientiDebitoriModule } from './relazioni/clienti-debitori.module';
+import { FasiModule } from './fasi/fasi.module';
+import { PraticheModule } from './pratiche/pratiche.module';
 
 @Module({
   imports: [
@@ -33,6 +35,8 @@ import { ClientiDebitoriModule } from './relazioni/clienti-debitori.module';
     ClientiModule,
     DebitoriModule,
     ClientiDebitoriModule,
+    FasiModule,
+    PraticheModule,
   ],
   controllers: [],
   providers: [],

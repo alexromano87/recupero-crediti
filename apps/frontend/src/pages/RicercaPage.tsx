@@ -15,8 +15,13 @@ import { useNavigate } from 'react-router-dom';
 import type { Cliente } from '../api/clienti';
 import { fetchClienti } from '../api/clienti';
 import type { Debitore } from '../api/debitori';
-import { fetchDebitori, getDebitoreDisplayName, fetchClientiForDebitore } from '../api/debitori';
+import {
+  fetchDebitoriWithClientiCount,
+  getDebitoreDisplayName,
+  type DebitoreWithClientiCount,
+} from '../api/debitori';
 import { useToast } from '../components/ui/ToastProvider';
+import { DebitoreDetailModal } from '../components/ui/DebitoreDetailModal';
 
 type TipoRisultato = 'cliente' | 'debitore' | 'pratica' | 'alert' | 'ticket';
 
@@ -44,7 +49,7 @@ const numeroAFormatoItaliano = (valore: string) => {
 export function RicercaPage() {
   // === Stato dati ===
   const [clienti, setClienti] = useState<Cliente[]>([]);
-  const [debitori, setDebitori] = useState<Debitore[]>([]);
+  const [debitori, setDebitori] = useState<DebitoreWithClientiCount[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,6 +69,10 @@ export function RicercaPage() {
   const [risultati, setRisultati] = useState<RisultatoRicerca[]>([]);
   const [ricercaEffettuata, setRicercaEffettuata] = useState(false);
 
+  // === Stato modale debitore ===
+  const [selectedDebitore, setSelectedDebitore] = useState<Debitore | null>(null);
+  const [isDebitoreModalOpen, setIsDebitoreModalOpen] = useState(false);
+
   const navigate = useNavigate();
   const { error: toastError } = useToast();
 
@@ -74,7 +83,7 @@ export function RicercaPage() {
         setLoading(true);
         const [clientiData, debitoriData] = await Promise.all([
           fetchClienti(true), // Include anche disattivati per ricerca completa
-          fetchDebitori(true),
+          fetchDebitoriWithClientiCount(true), // Include conteggio clienti per badge orfano
         ]);
         setClienti(clientiData);
         setDebitori(debitoriData);
@@ -193,7 +202,7 @@ export function RicercaPage() {
   };
 
   // === Navigazione al dettaglio ===
-  const visualizzaDettaglio = async (risultato: RisultatoRicerca) => {
+  const visualizzaDettaglio = (risultato: RisultatoRicerca) => {
     switch (risultato.tipo) {
       case 'cliente':
         if (risultato.data?.id) {
@@ -203,24 +212,9 @@ export function RicercaPage() {
         }
         break;
       case 'debitore':
-        if (risultato.data?.id) {
-          // Trova i clienti collegati al debitore
-          try {
-            const { clientiIds } = await fetchClientiForDebitore(risultato.data.id);
-            if (clientiIds.length > 0) {
-              // Ha almeno un cliente collegato: vai a DebitoriPage con cliente e debitore preselezionati
-              navigate(`/debitori?clienteId=${clientiIds[0]}&debitoreId=${risultato.data.id}`);
-            } else {
-              // Debitore orfano: vai a DebitoriPage con solo il debitore (mostra modale per ricollegarlo)
-              navigate(`/debitori?debitoreId=${risultato.data.id}&orfano=true`);
-            }
-          } catch (err) {
-            console.error('Errore nel recupero clienti per debitore:', err);
-            navigate('/debitori');
-          }
-        } else {
-          navigate('/debitori');
-        }
+        // Apre la modale con i dettagli del debitore
+        setSelectedDebitore(risultato.data as Debitore);
+        setIsDebitoreModalOpen(true);
         break;
       case 'pratica':
         navigate('/pratiche');
@@ -234,6 +228,18 @@ export function RicercaPage() {
       default:
         break;
     }
+  };
+
+  // Handler per chiusura modale debitore
+  const handleCloseDebitoreModal = () => {
+    setIsDebitoreModalOpen(false);
+    setSelectedDebitore(null);
+  };
+
+  // Handler quando un debitore orfano viene collegato
+  const handleDebitoreLinked = () => {
+    // Potresti voler aggiornare i risultati di ricerca qui
+    // Per ora non facciamo nulla, la modale si aggiornerà da sola
   };
 
 
@@ -289,7 +295,7 @@ export function RicercaPage() {
             d.citta?.toLowerCase().includes(termine)
           );
         })
-        .map((d: Debitore) => ({ tipo: 'debitore' as const, data: d }));
+        .map((d: DebitoreWithClientiCount) => ({ tipo: 'debitore' as const, data: d }));
       risultatiTrovati = [...risultatiTrovati, ...debitoriTrovati];
     }
 
@@ -673,7 +679,20 @@ export function RicercaPage() {
                             {getTipoLabel(risultato.tipo)}
                           </span>
 
-                          {/* Badge stati specifici: placeholder, si attiveranno quando avremo i dati */}
+                          {/* Badge orfano/collegato per debitori */}
+                          {risultato.tipo === 'debitore' && (
+                            risultato.data.clientiCount === 0 ? (
+                              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/50 dark:text-amber-400">
+                                ⚠️ Orfano
+                              </span>
+                            ) : (
+                              <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-medium text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400">
+                                {risultato.data.clientiCount} cliente{risultato.data.clientiCount > 1 ? 'i' : ''}
+                              </span>
+                            )
+                          )}
+
+                          {/* Badge stati specifici per pratiche */}
                           {risultato.tipo === 'pratica' && (
                             <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 dark:bg-slate-900 dark:text-slate-300">
                               {/* Qui potrai usare p.aperta/esito */}
@@ -809,6 +828,14 @@ export function RicercaPage() {
           </div>
         </div>
       )}
+
+      {/* Modale dettaglio debitore */}
+      <DebitoreDetailModal
+        isOpen={isDebitoreModalOpen}
+        onClose={handleCloseDebitoreModal}
+        debitore={selectedDebitore}
+        onLinked={handleDebitoreLinked}
+      />
     </div>
   );
 }

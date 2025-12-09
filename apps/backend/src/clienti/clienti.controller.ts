@@ -115,4 +115,14 @@ export class ClientiController {
     );
     return { success: true };
   }
+
+  // POST /clienti/:id/debitori/:debitoreId - collega un debitore esistente a un cliente
+  @Post(':id/debitori/:debitoreId')
+  async linkDebitore(
+    @Param('id') id: string,
+    @Param('debitoreId') debitoreId: string,
+  ) {
+    await this.clientiDebitoriService.linkDebitoreToCliente(id, debitoreId);
+    return { success: true };
+  }
 }

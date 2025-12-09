@@ -90,6 +90,21 @@ export function fetchDebitori(includeInactive = false): Promise<Debitore[]> {
   return api.get<Debitore[]>('/debitori', params);
 }
 
+// Tipo esteso con conteggio clienti
+export interface DebitoreWithClientiCount extends Debitore {
+  clientiCount: number;
+}
+
+export function fetchDebitoriWithClientiCount(
+  includeInactive = false,
+): Promise<DebitoreWithClientiCount[]> {
+  const params: Record<string, string> = { withClientiCount: 'true' };
+  if (includeInactive) {
+    params.includeInactive = 'true';
+  }
+  return api.get<DebitoreWithClientiCount[]>('/debitori', params);
+}
+
 export function fetchDebitore(id: string): Promise<Debitore> {
   return api.get<Debitore>(`/debitori/${id}`);
 }
@@ -152,6 +167,13 @@ export function unlinkDebitoreFromCliente(
   debitoreId: string,
 ): Promise<void> {
   return api.delete<void>(`/clienti/${clienteId}/debitori/${debitoreId}`);
+}
+
+export function linkDebitoreToCliente(
+  clienteId: string,
+  debitoreId: string,
+): Promise<void> {
+  return api.post<void>(`/clienti/${clienteId}/debitori/${debitoreId}`, {});
 }
 
 // ====== Helper functions ======

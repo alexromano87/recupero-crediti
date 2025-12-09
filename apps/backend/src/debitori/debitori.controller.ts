@@ -24,8 +24,17 @@ export class DebitoriController {
 
   // GET /debitori -> lista debitori
   // Query param: ?includeInactive=true per includere i disattivati
+  // Query param: ?withClientiCount=true per includere il conteggio clienti collegati
   @Get()
-  findAll(@Query('includeInactive') includeInactive?: string) {
+  findAll(
+    @Query('includeInactive') includeInactive?: string,
+    @Query('withClientiCount') withClientiCount?: string,
+  ) {
+    if (withClientiCount === 'true') {
+      return this.debitoriService.findAllWithClientiCount(
+        includeInactive === 'true',
+      );
+    }
     return this.debitoriService.findAll(includeInactive === 'true');
   }
 

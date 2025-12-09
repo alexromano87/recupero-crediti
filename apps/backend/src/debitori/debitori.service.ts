@@ -31,6 +31,34 @@ export class DebitoriService {
     });
   }
 
+  /**
+   * Restituisce tutti i debitori con il conteggio dei clienti collegati.
+   * Utile per la pagina di ricerca per mostrare se un debitore è "orfano".
+   */
+  async findAllWithClientiCount(
+    includeInactive = false,
+  ): Promise<(Debitore & { clientiCount: number })[]> {
+    const where = includeInactive ? {} : { attivo: true };
+    const debitori = await this.repo.find({
+      where,
+      order: { createdAt: 'DESC' },
+    });
+
+    // Per ogni debitore, conta i clienti collegati
+    const results = await Promise.all(
+      debitori.map(async (d) => {
+        const clientiIds =
+          await this.clientiDebitoriService.getClientiByDebitore(d.id);
+        return {
+          ...d,
+          clientiCount: clientiIds.length,
+        };
+      }),
+    );
+
+    return results;
+  }
+
   async findOne(id: string): Promise<Debitore> {
     const debitore = await this.repo.findOne({ where: { id } });
     if (!debitore) {
