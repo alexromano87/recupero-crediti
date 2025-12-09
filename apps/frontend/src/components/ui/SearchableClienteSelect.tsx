@@ -5,23 +5,36 @@ import type { Cliente } from '../../api/clienti';
 
 export interface SearchableClienteSelectProps {
   clienti: Cliente[];
-  selectedClienteId: string | null;
-  onSelect: (clienteId: string | null) => void;
   loading?: boolean;
   disabled?: boolean;
   placeholder?: string;
   className?: string;
+  allowClear?: boolean;
+  // Supporta entrambe le convenzioni
+  selectedClienteId?: string | null;
+  onSelect?: (clienteId: string | null) => void;
+  // Alias per compatibilità
+  value?: string | null;
+  onChange?: (clienteId: string | null) => void;
 }
 
 export function SearchableClienteSelect({
   clienti,
-  selectedClienteId,
-  onSelect,
   loading = false,
   disabled = false,
   placeholder = 'Cerca cliente...',
   className = '',
+  allowClear = true,
+  // Supporta entrambe le convenzioni
+  selectedClienteId,
+  onSelect,
+  value,
+  onChange,
 }: SearchableClienteSelectProps) {
+  // Usa value/onChange se forniti, altrimenti selectedClienteId/onSelect
+  const actualSelectedId = value !== undefined ? value : selectedClienteId;
+  const actualOnSelect = onChange || onSelect || (() => {});
+
   const [isOpen, setIsOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const containerRef = useRef<HTMLDivElement>(null);
@@ -29,8 +42,8 @@ export function SearchableClienteSelect({
 
   // Cliente selezionato
   const selectedCliente = useMemo(
-    () => clienti.find((c) => c.id === selectedClienteId) ?? null,
-    [clienti, selectedClienteId],
+    () => clienti.find((c) => c.id === actualSelectedId) ?? null,
+    [clienti, actualSelectedId],
   );
 
   // Filtra clienti in base al termine di ricerca
@@ -73,14 +86,14 @@ export function SearchableClienteSelect({
   }, [isOpen]);
 
   const handleSelect = (cliente: Cliente) => {
-    onSelect(cliente.id);
+    actualOnSelect(cliente.id);
     setIsOpen(false);
     setSearchTerm('');
   };
 
   const handleClear = (e: React.MouseEvent) => {
     e.stopPropagation();
-    onSelect(null);
+    actualOnSelect(null);
     setSearchTerm('');
   };
 
@@ -121,7 +134,7 @@ export function SearchableClienteSelect({
         )}
 
         <div className="flex shrink-0 items-center gap-1">
-          {selectedCliente && !disabled && (
+          {selectedCliente && !disabled && allowClear && (
             <span
               role="button"
               tabIndex={0}
@@ -177,7 +190,7 @@ export function SearchableClienteSelect({
             ) : (
               <ul className="py-1">
                 {filteredClienti.map((cliente) => {
-                  const isSelected = cliente.id === selectedClienteId;
+                  const isSelected = cliente.id === actualSelectedId;
                   return (
                     <li key={cliente.id}>
                       <button

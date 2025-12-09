@@ -10,7 +10,6 @@ import {
 } from 'typeorm';
 import { Cliente } from '../clienti/cliente.entity';
 import { Debitore } from '../debitori/debitore.entity';
-import { Fase } from '../fasi/fase.entity';
 
 // Esito della pratica (solo se chiusa)
 export type EsitoPratica = 'positivo' | 'negativo' | null;
@@ -50,14 +49,9 @@ export class Pratica {
   @JoinColumn({ name: 'debitoreId' })
   debitore: Debitore;
 
-  // --- Fase corrente (FK a tabella fasi) ---
-
-  @Column({ type: 'uuid' })
+  // --- Fase corrente (ID hardcoded, es. 'fase-001') ---
+  @Column({ type: 'varchar', length: 20, default: 'fase-001' })
   faseId: string;
-
-  @ManyToOne(() => Fase, { onDelete: 'RESTRICT' })
-  @JoinColumn({ name: 'faseId' })
-  fase: Fase;
 
   // --- Stato della pratica ---
 

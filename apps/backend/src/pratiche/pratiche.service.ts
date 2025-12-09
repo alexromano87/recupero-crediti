@@ -28,7 +28,7 @@ export class PraticheService {
     const where = includeInactive ? {} : { attivo: true };
     return this.repo.find({
       where,
-      relations: ['cliente', 'debitore', 'fase'],
+      relations: ['cliente', 'debitore'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -45,7 +45,7 @@ export class PraticheService {
       : { clienteId, attivo: true };
     return this.repo.find({
       where,
-      relations: ['cliente', 'debitore', 'fase'],
+      relations: ['cliente', 'debitore'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -62,7 +62,7 @@ export class PraticheService {
       : { debitoreId, attivo: true };
     return this.repo.find({
       where,
-      relations: ['cliente', 'debitore', 'fase'],
+      relations: ['cliente', 'debitore'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -73,7 +73,7 @@ export class PraticheService {
   async findOne(id: string): Promise<Pratica> {
     const pratica = await this.repo.findOne({
       where: { id },
-      relations: ['cliente', 'debitore', 'fase'],
+      relations: ['cliente', 'debitore'],
     });
     if (!pratica) {
       throw new NotFoundException(`Pratica con ID ${id} non trovata`);
@@ -88,14 +88,14 @@ export class PraticheService {
     // Determina la fase iniziale
     let faseIniziale;
     if (dto.faseId) {
-      faseIniziale = await this.fasiService.findOne(dto.faseId);
+      faseIniziale = this.fasiService.findOne(dto.faseId);
     } else {
       // Prendi la prima fase (ordine più basso, non di chiusura)
-      const fasi = await this.fasiService.findAll();
+      const fasi = this.fasiService.findAll();
       faseIniziale = fasi.find((f) => !f.isFaseChiusura);
       if (!faseIniziale) {
         throw new BadRequestException(
-          'Nessuna fase disponibile. Inizializza le fasi con POST /fasi/initialize',
+          'Nessuna fase disponibile.',
         );
       }
     }
@@ -169,7 +169,7 @@ export class PraticheService {
    */
   async cambiaFase(id: string, dto: CambiaFaseDto): Promise<Pratica> {
     const pratica = await this.findOne(id);
-    const nuovaFase = await this.fasiService.findOne(dto.nuovaFaseId);
+    const nuovaFase = this.fasiService.findOne(dto.nuovaFaseId);
 
     if (!pratica.aperta && !nuovaFase.isFaseChiusura) {
       throw new BadRequestException(
@@ -207,15 +207,23 @@ export class PraticheService {
     pratica.storico = storico;
 
     // Se la nuova fase è di chiusura, chiudi la pratica
+    // Determina l'esito in base al codice della fase
     if (nuovaFase.isFaseChiusura) {
-      if (!dto.esito) {
+      pratica.aperta = false;
+      pratica.dataChiusura = new Date();
+      
+      // Determina esito dal codice fase o dal dto
+      if (nuovaFase.codice === 'chiusura_positiva') {
+        pratica.esito = 'positivo';
+      } else if (nuovaFase.codice === 'chiusura_negativa') {
+        pratica.esito = 'negativo';
+      } else if (dto.esito) {
+        pratica.esito = dto.esito;
+      } else {
         throw new BadRequestException(
           'Per chiudere la pratica devi specificare un esito (positivo/negativo)',
         );
       }
-      pratica.aperta = false;
-      pratica.esito = dto.esito;
-      pratica.dataChiusura = new Date();
     }
 
     await this.repo.save(pratica);
@@ -235,7 +243,7 @@ export class PraticheService {
     // Determina la nuova fase
     let nuovaFase;
     if (nuovaFaseId) {
-      nuovaFase = await this.fasiService.findOne(nuovaFaseId);
+      nuovaFase = this.fasiService.findOne(nuovaFaseId);
     } else {
       // Prendi la prima fase (ordine più basso, non di chiusura)
       const fasi = await this.fasiService.findAll();
@@ -370,19 +378,19 @@ export class PraticheService {
   async countByFase(): Promise<Record<string, number>> {
     const results = await this.repo
       .createQueryBuilder('pratica')
-      .leftJoin('pratica.fase', 'fase')
-      .select('fase.codice', 'faseCodice')
-      .addSelect('fase.nome', 'faseNome')
+      .select('pratica.faseId', 'faseId')
       .addSelect('COUNT(*)', 'count')
       .where('pratica.attivo = :attivo', { attivo: true })
       .groupBy('pratica.faseId')
-      .addGroupBy('fase.codice')
-      .addGroupBy('fase.nome')
       .getRawMany();
 
     const counts: Record<string, number> = {};
     results.forEach((r) => {
-      counts[r.faseCodice] = parseInt(r.count, 10);
+      // Usa la costante per ottenere il codice dalla faseId
+      const fase = this.fasiService.findOne(r.faseId);
+      if (fase) {
+        counts[fase.codice] = parseInt(r.count, 10);
+      }
     });
 
     return counts;

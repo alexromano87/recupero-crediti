@@ -1,4 +1,4 @@
- // src/pratiche/dto/create-pratica.dto.ts
+// src/pratiche/dto/create-pratica.dto.ts
 import {
   IsUUID,
   IsOptional,

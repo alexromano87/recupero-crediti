@@ -1,20 +1,16 @@
 // apps/frontend/src/api/pratiche.ts
 import { api } from './config';
+import type { Fase } from './fasi';
 
 // ====== Tipi ======
 
-export type FasePratica =
-  | 'analisi_preliminare'
-  | 'messa_in_mora'
-  | 'decreto_ingiuntivo'
-  | 'esecuzione_forzata'
-  | 'pignoramento'
-  | 'chiusa';
-
 export type EsitoPratica = 'positivo' | 'negativo' | null;
 
+// Storico fasi - riferisce alle fasi tramite ID
 export interface StoricoFase {
-  fase: FasePratica;
+  faseId: string;
+  faseCodice: string;
+  faseNome: string;
   dataInizio: string;
   dataFine?: string;
   note?: string;
@@ -27,6 +23,9 @@ export interface Pratica {
   // Relazioni
   clienteId: string;
   debitoreId: string;
+  faseId: string; // FK alla tabella fasi
+  
+  // Oggetti relazionati (popolati dal backend con JOIN)
   cliente?: {
     id: string;
     ragioneSociale: string;
@@ -40,9 +39,9 @@ export interface Pratica {
     ragioneSociale?: string;
     attivo: boolean;
   };
+  fase?: Fase; // Oggetto Fase completo dal DB
 
   // Stato
-  fase: FasePratica;
   aperta: boolean;
   esito: EsitoPratica;
 
@@ -76,7 +75,7 @@ export interface Pratica {
 export interface PraticaCreatePayload {
   clienteId: string;
   debitoreId: string;
-  fase?: FasePratica;
+  faseId?: string; // UUID della fase, opzionale (default: prima fase)
   aperta?: boolean;
   esito?: EsitoPratica;
   capitale?: number;
@@ -94,11 +93,12 @@ export interface PraticaCreatePayload {
   dataScadenza?: string;
 }
 
-export interface PraticaUpdatePayload extends Partial<Omit<PraticaCreatePayload, 'fase'>> {}
+// Update non permette cambio fase (usa endpoint dedicato)
+export interface PraticaUpdatePayload extends Partial<Omit<PraticaCreatePayload, 'faseId'>> {}
 
 export interface CambiaFasePayload {
-  nuovaFase: FasePratica;
-  esito?: 'positivo' | 'negativo';
+  nuovaFaseId: string; // UUID della nuova fase
+  esito?: 'positivo' | 'negativo'; // Obbligatorio se la fase è di chiusura
   note?: string;
 }
 
@@ -114,7 +114,7 @@ export interface PraticheStats {
   anticipazioniRecuperate: number;
   compensiMaturati: number;
   compensiLiquidati: number;
-  perFase: Record<FasePratica, number>;
+  perFase: Record<string, number>; // chiave: codice fase, valore: count
 }
 
 // ====== CRUD Pratiche ======
@@ -168,9 +168,9 @@ export function cambiaFasePratica(
 
 export function riapriPratica(
   id: string,
-  fase?: FasePratica,
+  faseId?: string, // UUID della fase in cui riaprire
 ): Promise<Pratica> {
-  return api.patch<Pratica>(`/pratiche/${id}/riapri`, { fase });
+  return api.patch<Pratica>(`/pratiche/${id}/riapri`, { faseId });
 }
 
 export function deactivatePratica(id: string): Promise<Pratica> {
@@ -183,36 +183,30 @@ export function reactivatePratica(id: string): Promise<Pratica> {
 
 // ====== Helper functions ======
 
-export const FASI_LABELS: Record<FasePratica, string> = {
-  analisi_preliminare: 'Analisi preliminare',
-  messa_in_mora: 'Messa in mora',
-  decreto_ingiuntivo: 'Decreto ingiuntivo',
-  esecuzione_forzata: 'Esecuzione forzata',
-  pignoramento: 'Pignoramento',
-  chiusa: 'Chiusa',
-};
-
-export const FASI_ORDER: FasePratica[] = [
-  'analisi_preliminare',
-  'messa_in_mora',
-  'decreto_ingiuntivo',
-  'esecuzione_forzata',
-  'pignoramento',
-  'chiusa',
-];
-
+// Label esiti (questi sono fissi, non dinamici)
 export const ESITI_LABELS: Record<string, string> = {
   positivo: 'Esito positivo',
   negativo: 'Esito negativo',
 };
 
-export function getFaseLabel(fase: FasePratica): string {
-  return FASI_LABELS[fase] || fase;
-}
-
 export function getEsitoLabel(esito: EsitoPratica): string {
   if (!esito) return 'In corso';
   return ESITI_LABELS[esito] || esito;
+}
+
+// Helper per ottenere il nome della fase dalla pratica
+export function getFaseNome(pratica: Pratica): string {
+  return pratica.fase?.nome || '(Fase sconosciuta)';
+}
+
+// Helper per ottenere il colore della fase dalla pratica
+export function getFaseColore(pratica: Pratica): string {
+  return pratica.fase?.colore || '#6B7280'; // gray-500 default
+}
+
+// Helper per verificare se la pratica è in una fase di chiusura
+export function isInFaseChiusura(pratica: Pratica): boolean {
+  return pratica.fase?.isFaseChiusura || false;
 }
 
 export function getDebitoreDisplayName(debitore?: Pratica['debitore']): string {

@@ -3,6 +3,7 @@ import { AppLayout } from './layout/AppLayout';
 import { ClientiPage } from './pages/ClientiPage';
 import { RicercaPage } from './pages/RicercaPage';
 import { DebitoriPage } from './pages/DebitoriPage';
+import { PratichePage } from './pages/PratichePage';
 
 
 function DashboardPage() {
@@ -16,10 +17,6 @@ function DashboardPage() {
       </p>
     </div>
   );
-}
-
-function PratichePage() {
-  return <h2 className="text-xl font-semibold">Pratiche (placeholder)</h2>;
 }
 
 function AlertPage() {

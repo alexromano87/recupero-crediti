@@ -1,17 +1,8 @@
 // apps/frontend/src/api/debitori.ts
 import { api } from './config';
+import type { TipologiaAzienda } from './clienti';
 
 export type TipoSoggetto = 'persona_fisica' | 'persona_giuridica';
-
-export type TipologiaAzienda =
-  | 'impresa_individuale'
-  | 'impresa_individuale_agricola'
-  | 'srl'
-  | 'spa'
-  | 'scpa'
-  | 'srl_agricola'
-  | 'snc'
-  | 'sas';
 
 export interface Debitore {
   id: string;
