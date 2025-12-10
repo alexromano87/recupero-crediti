@@ -24,7 +24,7 @@ export class CreatePraticaDto {
   // --- Fase (opzionale, se non specificato usa la prima fase disponibile) ---
 
   @IsOptional()
-  @IsUUID()
+  @IsString()
   faseId?: string;
 
   @IsOptional()

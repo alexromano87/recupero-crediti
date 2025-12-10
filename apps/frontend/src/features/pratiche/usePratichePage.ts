@@ -425,8 +425,8 @@ export function usePratichePage(options: UsePratichePageOptions = {}) {
 
   // === Fasi disponibili per cambio (esclude la fase corrente) ===
   const fasiDisponibili = selectedPratica
-    ? fasi.filter((f) => f.id !== selectedPratica.faseId && f.attivo)
-    : fasi.filter((f) => f.attivo);
+    ? fasi.filter((f) => f.id !== selectedPratica.faseId)
+    : fasi;
 
   return {
     // Dati

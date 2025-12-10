@@ -1,5 +1,5 @@
 // apps/frontend/src/pages/PratichePage.tsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   FileText,
   Plus,
@@ -23,6 +23,7 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
+  MessageSquare,
 } from 'lucide-react';
 import { usePratichePage } from '../features/pratiche/usePratichePage';
 import {
@@ -31,8 +32,10 @@ import {
   getEsitoLabel,
   getFaseNome,
   getFaseColore,
+  type StoricoFase,
 } from '../api/pratiche';
 import { SearchableClienteSelect } from '../components/ui/SearchableClienteSelect';
+import { CustomSelect } from '../components/ui/CustomSelect';
 import { useConfirmDialog } from '../components/ui/ConfirmDialog';
 
 // === Helper per formattazione valuta italiana ===
@@ -106,6 +109,20 @@ export function PratichePage() {
 
   // === Stato per input valuta formattati ===
   const [capitaleInput, setCapitaleInput] = useState('');
+  
+  // === Stato per feedback visivo cambio fase ===
+  const [showFaseSuccessFeedback, setShowFaseSuccessFeedback] = useState(false);
+  
+  // === Stato per modale dettaglio fase storico ===
+  const [selectedStoricoFase, setSelectedStoricoFase] = useState<StoricoFase | null>(null);
+
+  // === Effetto per reset feedback dopo timeout ===
+  useEffect(() => {
+    if (showFaseSuccessFeedback) {
+      const timer = setTimeout(() => setShowFaseSuccessFeedback(false), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [showFaseSuccessFeedback]);
 
   // === Handlers con conferma ===
 
@@ -144,6 +161,67 @@ export function PratichePage() {
       await handleRiapriPratica();
     }
   };
+
+  // Handler per creazione pratica con conferma
+  const handleCreatePratica = async () => {
+    // Trova cliente e debitore per mostrare i nomi nella conferma
+    const cliente = clienti.find(c => c.id === newForm.clienteId);
+    const debitore = debitoriForCliente.find(d => d.id === newForm.debitoreId);
+    
+    const clienteNome = cliente?.ragioneSociale || 'Cliente';
+    const debitoreNome = debitore?.tipoSoggetto === 'persona_fisica'
+      ? `${debitore.nome} ${debitore.cognome}`.trim()
+      : debitore?.ragioneSociale || 'Debitore';
+    
+    const capitaleStr = newForm.capitale 
+      ? `€ ${newForm.capitale.toLocaleString('it-IT', { minimumFractionDigits: 2 })}`
+      : 'non specificato';
+
+    const confirmed = await confirm({
+      title: 'Conferma apertura pratica',
+      message: `Stai per aprire una nuova pratica:\n\n• Cliente: ${clienteNome}\n• Debitore: ${debitoreNome}\n• Capitale: ${capitaleStr}\n\nConfermi l'apertura?`,
+      confirmText: 'Apri pratica',
+      variant: 'info',
+    });
+    
+    if (confirmed) {
+      await submitNewPratica();
+      setCapitaleInput('');
+    }
+  };
+
+  // Handler per cambio fase con feedback visivo
+  const handleCambiaFaseWithFeedback = async () => {
+    await submitCambioFase();
+    setShowFaseSuccessFeedback(true);
+  };
+
+  // Filtra fasi disponibili: solo quelle con ordine > fase corrente (no ritorno indietro)
+  const fasiAvanzamento = selectedPratica
+    ? fasiDisponibili.filter((f) => {
+        const faseCorrente = getFaseById(selectedPratica.faseId);
+        if (!faseCorrente) return true;
+        return f.ordine > faseCorrente.ordine;
+      })
+    : fasiDisponibili;
+
+  // Opzioni per CustomSelect debitore
+  const debitoreOptions = debitoriForCliente.map((d) => ({
+    value: d.id,
+    label: d.tipoSoggetto === 'persona_fisica'
+      ? `${d.nome} ${d.cognome}`.trim()
+      : d.ragioneSociale || '',
+    sublabel: d.tipoSoggetto === 'persona_fisica' 
+      ? d.codiceFiscale || undefined
+      : d.partitaIva || undefined,
+  }));
+
+  // Opzioni per CustomSelect fase
+  const faseOptions = fasiAvanzamento.map((f) => ({
+    value: f.id,
+    label: f.nome,
+    sublabel: f.isFaseChiusura ? 'Fase di chiusura' : undefined,
+  }));
 
   // === Render lista pratiche ===
 
@@ -459,7 +537,7 @@ export function PratichePage() {
                 value={editForm.note || ''}
                 onChange={(e) => updateEditForm('note', e.target.value)}
                 rows={3}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
                 placeholder="Aggiungi note..."
               />
             ) : (
@@ -476,35 +554,60 @@ export function PratichePage() {
                 Storico fasi
               </h3>
               <div className="space-y-2">
-                {selectedPratica.storico.map((s, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-start gap-3 p-3 rounded-lg bg-slate-50 dark:bg-slate-800/50"
-                  >
-                    <div
-                      className="w-2 h-2 rounded-full mt-1.5 flex-shrink-0"
-                      style={{
-                        backgroundColor:
-                          getFaseById(s.faseId)?.colore || '#6B7280',
-                      }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-900 dark:text-slate-50">
-                        {s.faseNome}
-                      </p>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        {new Date(s.dataInizio).toLocaleDateString('it-IT')}{' '}
-                        {s.dataFine &&
-                          `→ ${new Date(s.dataFine).toLocaleDateString('it-IT')}`}
-                      </p>
-                      {s.note && (
-                        <p className="text-xs text-slate-600 dark:text-slate-300 mt-1">
-                          {s.note}
+                {selectedPratica.storico.map((s, idx) => {
+                  const isCompleted = !!s.dataFine;
+                  const isLastCompleted = isCompleted && idx === selectedPratica.storico!.length - 2 && showFaseSuccessFeedback;
+                  
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => isCompleted && setSelectedStoricoFase(s)}
+                      disabled={!isCompleted}
+                      className={`flex items-start gap-3 p-3 rounded-lg w-full text-left transition-all ${
+                        isCompleted 
+                          ? 'bg-emerald-50 dark:bg-emerald-900/20 cursor-pointer hover:bg-emerald-100 dark:hover:bg-emerald-900/30' 
+                          : 'bg-slate-50 dark:bg-slate-800/50'
+                      } ${
+                        isLastCompleted 
+                          ? 'ring-2 ring-emerald-500 ring-offset-2 dark:ring-offset-slate-900' 
+                          : isCompleted 
+                          ? 'border border-emerald-300 dark:border-emerald-700' 
+                          : ''
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 mt-0.5 flex-shrink-0">
+                        {isCompleted ? (
+                          <CheckCircle className="w-4 h-4 text-emerald-500" />
+                        ) : (
+                          <div
+                            className="w-3 h-3 rounded-full"
+                            style={{
+                              backgroundColor: getFaseById(s.faseId)?.colore || '#6B7280',
+                            }}
+                          />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className={`text-sm font-medium ${isCompleted ? 'text-emerald-700 dark:text-emerald-300' : 'text-slate-900 dark:text-slate-50'}`}>
+                            {s.faseNome}
+                          </p>
+                          {isCompleted && s.note && (
+                            <MessageSquare className="w-3 h-3 text-emerald-500" />
+                          )}
+                        </div>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">
+                          {new Date(s.dataInizio).toLocaleDateString('it-IT')}{' '}
+                          {s.dataFine && `→ ${new Date(s.dataFine).toLocaleDateString('it-IT')}`}
                         </p>
+                      </div>
+                      {isCompleted && (
+                        <ChevronRight className="w-4 h-4 text-emerald-400 flex-shrink-0 mt-0.5" />
                       )}
-                    </div>
-                  </div>
-                ))}
+                    </button>
+                  );
+                })}
               </div>
             </div>
           )}
@@ -578,7 +681,7 @@ export function PratichePage() {
           step="0.01"
           value={value || 0}
           onChange={(e) => updateEditForm(field, parseFloat(e.target.value) || 0)}
-          className="w-full rounded border border-slate-300 px-2 py-1 text-sm font-semibold focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+          className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs font-semibold outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         />
       ) : (
         <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
@@ -600,7 +703,7 @@ export function PratichePage() {
           type="date"
           value={value ? value.split('T')[0] : ''}
           onChange={(e) => updateEditForm(field, e.target.value)}
-          className="w-full rounded border border-slate-300 px-2 py-1 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-700 dark:text-slate-100"
+          className="w-full rounded-lg border border-slate-300 bg-white px-2 py-1 text-xs outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
         />
       ) : (
         <p className="text-sm font-semibold text-slate-900 dark:text-slate-50">
@@ -660,29 +763,20 @@ export function PratichePage() {
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Debitore *
               </label>
-              <select
+              <CustomSelect
+                options={debitoreOptions}
                 value={newForm.debitoreId}
-                onChange={(e) => updateNewForm('debitoreId', e.target.value)}
-                disabled={!newForm.clienteId || loadingDebitori}
-                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:bg-slate-100 disabled:text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 dark:disabled:bg-slate-800 dark:disabled:text-slate-500"
-              >
-                <option value="">
-                  {!newForm.clienteId
+                onChange={(id) => updateNewForm('debitoreId', id)}
+                placeholder={
+                  !newForm.clienteId
                     ? 'Prima seleziona un cliente'
-                    : loadingDebitori
-                    ? 'Caricamento...'
                     : debitoriForCliente.length === 0
                     ? 'Nessun debitore per questo cliente'
-                    : 'Seleziona debitore'}
-                </option>
-                {debitoriForCliente.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.tipoSoggetto === 'persona_fisica'
-                      ? `${d.nome} ${d.cognome}`
-                      : d.ragioneSociale}
-                  </option>
-                ))}
-              </select>
+                    : 'Seleziona debitore...'
+                }
+                disabled={!newForm.clienteId}
+                loading={loadingDebitori}
+              />
             </div>
 
             {/* Capitale */}
@@ -758,7 +852,7 @@ export function PratichePage() {
               Annulla
             </button>
             <button
-              onClick={submitNewPratica}
+              onClick={handleCreatePratica}
               disabled={savingNew || !newForm.clienteId || !newForm.debitoreId}
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-400"
             >
@@ -800,18 +894,17 @@ export function PratichePage() {
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">
                 Nuova fase *
               </label>
-              <select
+              <CustomSelect
+                options={faseOptions}
                 value={cambioFaseData.nuovaFaseId}
-                onChange={(e) => updateCambioFaseData('nuovaFaseId', e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
-              >
-                <option value="">Seleziona fase</option>
-                {fasiDisponibili.map((f) => (
-                  <option key={f.id} value={f.id}>
-                    {f.nome} {f.isFaseChiusura ? '(chiusura)' : ''}
-                  </option>
-                ))}
-              </select>
+                onChange={(id) => updateCambioFaseData('nuovaFaseId', id)}
+                placeholder="Seleziona fase..."
+              />
+              {fasiAvanzamento.length === 0 && (
+                <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                  Non ci sono fasi successive disponibili. La pratica è già all'ultima fase.
+                </p>
+              )}
             </div>
 
             <div>
@@ -822,7 +915,7 @@ export function PratichePage() {
                 value={cambioFaseData.note}
                 onChange={(e) => updateCambioFaseData('note', e.target.value)}
                 rows={3}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+                className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
                 placeholder="Note sul cambio fase..."
               />
             </div>
@@ -837,7 +930,7 @@ export function PratichePage() {
               Annulla
             </button>
             <button
-              onClick={submitCambioFase}
+              onClick={handleCambiaFaseWithFeedback}
               disabled={savingCambioFase || !cambioFaseData.nuovaFaseId}
               className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 disabled:opacity-50 dark:bg-indigo-500 dark:hover:bg-indigo-400"
             >
@@ -869,6 +962,95 @@ export function PratichePage() {
       {/* Modali */}
       {renderNewPraticaModal()}
       {renderCambioFaseModal()}
+      
+      {/* Modale dettaglio fase completata */}
+      {selectedStoricoFase && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setSelectedStoricoFase(null)}
+          />
+          <div className="relative z-10 w-full max-w-md mx-4 bg-white rounded-2xl shadow-2xl dark:bg-slate-900">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-full bg-emerald-100 dark:bg-emerald-900/50">
+                  <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">
+                    {selectedStoricoFase.faseNome}
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    Fase completata
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setSelectedStoricoFase(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 hover:bg-slate-100 rounded-lg dark:hover:text-slate-300 dark:hover:bg-slate-800"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-4">
+              {/* Date */}
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800">
+                  <p className="text-xs text-slate-500 dark:text-slate-400 mb-1">Data inizio</p>
+                  <p className="text-sm font-medium text-slate-900 dark:text-slate-50">
+                    {new Date(selectedStoricoFase.dataInizio).toLocaleDateString('it-IT', {
+                      day: '2-digit',
+                      month: 'long',
+                      year: 'numeric'
+                    })}
+                  </p>
+                </div>
+                {selectedStoricoFase.dataFine && (
+                  <div className="p-3 rounded-lg bg-emerald-50 dark:bg-emerald-900/30">
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mb-1">Data fine</p>
+                    <p className="text-sm font-medium text-emerald-700 dark:text-emerald-300">
+                      {new Date(selectedStoricoFase.dataFine).toLocaleDateString('it-IT', {
+                        day: '2-digit',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Note */}
+              <div>
+                <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-2 uppercase tracking-wide">
+                  Note di chiusura fase
+                </p>
+                {selectedStoricoFase.note ? (
+                  <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border-l-4 border-emerald-500">
+                    <p className="text-sm text-slate-700 dark:text-slate-300 whitespace-pre-wrap">
+                      {selectedStoricoFase.note}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm text-slate-400 dark:text-slate-500 italic">
+                    Nessuna nota inserita per questa fase
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex justify-end p-4 border-t border-slate-200 dark:border-slate-700">
+              <button
+                onClick={() => setSelectedStoricoFase(null)}
+                className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 rounded-lg hover:bg-slate-200 dark:text-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600"
+              >
+                Chiudi
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       <ConfirmDialog />
     </div>
   );
