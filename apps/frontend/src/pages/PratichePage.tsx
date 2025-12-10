@@ -332,9 +332,15 @@ export function PratichePage() {
       {error && <div className="rounded-xl border border-rose-300 bg-rose-50 px-4 py-3 text-xs text-rose-700 dark:border-rose-800 dark:bg-rose-900/30 dark:text-rose-400">{error}</div>}
 
       {/* CONTENT */}
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start transition-all duration-300">
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start transition-all duration-500 ease-in-out">
         {/* DETAIL PANEL */}
-        <section className={`rounded-2xl border border-slate-200 bg-white/95 shadow-sm dark:border-slate-800 dark:bg-slate-900/90 overflow-hidden transition-all duration-300 ease-out ${showDetail ? 'lg:basis-7/12 opacity-100 max-h-[2000px]' : 'lg:basis-0 opacity-0 max-h-0 pointer-events-none'}`}>
+        <section
+          className={`rounded-2xl border border-slate-200 bg-white/95 shadow-sm dark:border-slate-800 dark:bg-slate-900/90 overflow-hidden transform transition-all duration-500 ease-in-out ${
+            showDetail
+              ? 'lg:basis-7/12 opacity-100 max-h-[2000px] translate-y-0 scale-100'
+              : 'lg:basis-0 opacity-0 max-h-0 pointer-events-none -translate-y-2 scale-[0.98]'
+          }`}
+        >
           {selectedPratica && (
             <>
               {/* Detail Header */}
@@ -389,7 +395,13 @@ export function PratichePage() {
         </section>
 
         {/* PRATICHE LIST */}
-        <section className={`rounded-2xl border border-slate-200 bg-white/95 shadow-sm dark:border-slate-800 dark:bg-slate-900/90 overflow-hidden transition-all duration-300 ${showDetail ? 'lg:basis-5/12' : 'lg:basis-full'}`}>
+        <section
+          className={`rounded-2xl border border-slate-200 bg-white/95 shadow-sm dark:border-slate-800 dark:bg-slate-900/90 overflow-hidden transform transition-all duration-500 ease-in-out ${
+            showDetail
+              ? 'lg:basis-5/12 translate-y-0'
+              : 'lg:basis-full translate-y-0'
+          }`}
+        >
           <div className="p-4 border-b border-slate-100 dark:border-slate-800">
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-sm font-semibold text-slate-900 dark:text-slate-50">Lista pratiche</h2>
