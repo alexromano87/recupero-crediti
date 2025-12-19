@@ -9,13 +9,18 @@ import {
   Post,
   Put,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { PraticheService } from './pratiche.service';
 import { CreatePraticaDto } from './dto/create-pratica.dto';
 import { UpdatePraticaDto } from './dto/update-pratica.dto';
 import { CambiaFaseDto } from './dto/cambia-fase.dto';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { CurrentUserData } from '../auth/current-user.decorator';
 
 @Controller('pratiche')
+@UseGuards(JwtAuthGuard)
 export class PraticheController {
   constructor(private readonly praticheService: PraticheService) {}
 
@@ -28,11 +33,16 @@ export class PraticheController {
   //   ?debitoreId=xxx per filtrare per debitore
   @Get()
   findAll(
+    @CurrentUser() user: CurrentUserData,
     @Query('includeInactive') includeInactive?: string,
     @Query('clienteId') clienteId?: string,
     @Query('debitoreId') debitoreId?: string,
   ) {
     const includeInact = includeInactive === 'true';
+
+    // Gli admin vedono tutte le pratiche
+    // Gli altri vedono solo le pratiche del loro studio
+    const studioId = user.ruolo === 'admin' ? undefined : user.studioId || undefined;
 
     if (clienteId) {
       return this.praticheService.findByCliente(clienteId, includeInact);
@@ -41,7 +51,7 @@ export class PraticheController {
       return this.praticheService.findByDebitore(debitoreId, includeInact);
     }
 
-    return this.praticheService.findAll(includeInact);
+    return this.praticheService.findAll(includeInact, studioId);
   }
 
   // GET /pratiche/stats -> statistiche pratiche
@@ -68,7 +78,11 @@ export class PraticheController {
 
   // POST /pratiche -> creazione nuova pratica
   @Post()
-  create(@Body() dto: CreatePraticaDto) {
+  create(@CurrentUser() user: CurrentUserData, @Body() dto: CreatePraticaDto) {
+    // Assegna automaticamente lo studioId dell'utente loggato (se non è admin)
+    if (user.ruolo !== 'admin' && user.studioId) {
+      dto.studioId = user.studioId;
+    }
     return this.praticheService.create(dto);
   }
 

@@ -36,9 +36,16 @@ export class ClientiService {
   /**
    * Restituisce tutti i clienti.
    * @param includeInactive - se true, include anche i clienti disattivati
+   * @param studioId - se presente, filtra per studio (undefined = tutti per admin)
    */
-  async findAll(includeInactive = false) {
-    const where = includeInactive ? {} : { attivo: true };
+  async findAll(includeInactive = false, studioId?: string) {
+    const where: any = includeInactive ? {} : { attivo: true };
+
+    // Se studioId è definito, filtra per studio
+    if (studioId !== undefined) {
+      where.studioId = studioId;
+    }
+
     return this.repo.find({
       where,
       order: { ragioneSociale: 'ASC' },
@@ -133,5 +140,46 @@ export class ClientiService {
   async countPraticheCollegate(id: string): Promise<number> {
     // TODO: Implementare quando avremo l'entity Pratica
     return 0;
+  }
+
+  /**
+   * Ottiene la configurazione di condivisione dashboard per un cliente.
+   */
+  async getConfigurazioneCondivisione(id: string) {
+    const cliente = await this.findOne(id);
+
+    // Se non esiste configurazione, restituisci una configurazione di default
+    if (!cliente.configurazioneCondivisione) {
+      return {
+        abilitata: false,
+        dashboard: {
+          stats: false,
+          kpi: false,
+        },
+        pratiche: {
+          elenco: false,
+          dettagli: false,
+          documenti: false,
+          movimentiFinanziari: false,
+          timeline: false,
+        },
+      };
+    }
+
+    return cliente.configurazioneCondivisione;
+  }
+
+  /**
+   * Aggiorna la configurazione di condivisione dashboard per un cliente.
+   */
+  async updateConfigurazioneCondivisione(id: string, configurazione: any) {
+    const cliente = await this.findOne(id);
+
+    await this.repo.update(
+      { id },
+      { configurazioneCondivisione: configurazione }
+    );
+
+    return this.findOne(id);
   }
 }

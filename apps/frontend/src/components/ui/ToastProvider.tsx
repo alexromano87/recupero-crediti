@@ -97,19 +97,12 @@ export const ToastProvider: React.FC<{
         {toasts.map((toast) => {
           const isSuccess = toast.type === 'success';
           const isError = toast.type === 'error';
-          const isInfo = toast.type === 'info';
 
           const borderClass = isSuccess
             ? 'border-emerald-300/70 dark:border-emerald-500/60'
             : isError
               ? 'border-rose-300/70 dark:border-rose-500/60'
               : 'border-sky-300/70 dark:border-sky-500/60';
-
-          const bgClass = isSuccess
-            ? 'bg-emerald-50/80 dark:bg-emerald-950/80'
-            : isError
-              ? 'bg-rose-50/80 dark:bg-rose-950/80'
-              : 'bg-sky-50/80 dark:bg-sky-950/80';
 
           const ringClass = isSuccess
             ? 'ring-emerald-200/60 dark:ring-emerald-700/70'

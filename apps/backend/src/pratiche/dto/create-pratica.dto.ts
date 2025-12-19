@@ -8,6 +8,7 @@ import {
   IsDateString,
   IsBoolean,
   Min,
+  IsArray,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import type { EsitoPratica } from '../pratica.entity';
@@ -20,6 +21,17 @@ export class CreatePraticaDto {
 
   @IsUUID()
   debitoreId: string;
+
+  @IsOptional()
+  @IsUUID()
+  studioId?: string | null;
+
+  // --- Avvocati associati (opzionale) ---
+
+  @IsOptional()
+  @IsArray()
+  @IsUUID('4', { each: true })
+  avvocatiIds?: string[];
 
   // --- Fase (opzionale, se non specificato usa la prima fase disponibile) ---
 

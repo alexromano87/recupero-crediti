@@ -1,11 +1,23 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
 import { ClientiModule } from './clienti/clienti.module';
 import { DebitoriModule } from './debitori/debitori.module';
 import { ClientiDebitoriModule } from './relazioni/clienti-debitori.module';
 import { FasiModule } from './fasi/fasi.module';
 import { PraticheModule } from './pratiche/pratiche.module';
+import { AvvocatiModule } from './avvocati/avvocati.module';
+import { MovimentiFinanziariModule } from './movimenti-finanziari/movimenti-finanziari.module';
+import { AlertsModule } from './alerts/alerts.module';
+import { TicketsModule } from './tickets/tickets.module';
+import { DocumentiModule } from './documenti/documenti.module';
+import { CartelleModule } from './cartelle/cartelle.module';
+import { DashboardModule } from './dashboard/dashboard.module';
+import { StudiModule } from './studi/studi.module';
+import { AdminMaintenanceModule } from './admin/admin-maintenance.module';
+import { AuditLogModule } from './audit/audit-log.module';
 
 @Module({
   imports: [
@@ -32,11 +44,23 @@ import { PraticheModule } from './pratiche/pratiche.module';
       }),
     }),
 
+    AuthModule,
+    UsersModule,
+    StudiModule,
     ClientiModule,
     DebitoriModule,
     ClientiDebitoriModule,
     FasiModule,
     PraticheModule,
+    AvvocatiModule,
+    MovimentiFinanziariModule,
+    AlertsModule,
+    TicketsModule,
+    DocumentiModule,
+    CartelleModule,
+    DashboardModule,
+    AdminMaintenanceModule,
+    AuditLogModule,
   ],
   controllers: [],
   providers: [],

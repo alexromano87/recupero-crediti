@@ -39,12 +39,9 @@ export function DebitoreDetailModal({
 
   // Stato per collegamento (debitore orfano)
   const [tuttiClienti, setTuttiClienti] = useState<Cliente[]>([]);
-  const [loadingTuttiClienti, setLoadingTuttiClienti] = useState(false);
   const [selectedClienteId, setSelectedClienteId] = useState<string>('');
   const [linking, setLinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const isOrfano = clientiCollegati.length === 0 && !loadingClienti;
 
   // Carica clienti collegati quando si apre la modale
   useEffect(() => {
@@ -424,7 +421,7 @@ export function DebitoreDetailModal({
                     <select
                       value={selectedClienteId}
                       onChange={(e) => setSelectedClienteId(e.target.value)}
-                      disabled={linking || loadingTuttiClienti}
+                      disabled={linking}
                       className="w-full rounded-lg border border-amber-300 bg-white px-2 py-1.5 text-xs text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 disabled:opacity-50 dark:border-amber-700 dark:bg-slate-800 dark:text-slate-100"
                     >
                       <option value="">-- Seleziona --</option>

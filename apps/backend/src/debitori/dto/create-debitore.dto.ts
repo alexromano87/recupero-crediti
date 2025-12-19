@@ -7,10 +7,15 @@ import {
   IsOptional,
   IsString,
   Length,
+  IsUUID,
 } from 'class-validator';
 import type { TipoSoggetto, TipologiaAzienda } from '../debitore.entity';
 
 export class CreateDebitoreDto {
+  @IsOptional()
+  @IsUUID()
+  studioId?: string | null;
+
   @IsIn(['persona_fisica', 'persona_giuridica'])
   tipoSoggetto: TipoSoggetto;
 

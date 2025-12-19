@@ -1,7 +1,11 @@
-import { IsEmail, IsIn, IsOptional, IsString, Length } from 'class-validator';
+import { IsEmail, IsIn, IsOptional, IsString, Length, IsUUID } from 'class-validator';
 import type { TipologiaAzienda } from '../cliente.entity';
 
 export class CreateClienteDto {
+  @IsOptional()
+  @IsUUID()
+  studioId?: string | null;
+
   @IsString()
   ragioneSociale: string;
 
@@ -72,9 +76,8 @@ export class CreateClienteDto {
   @IsString()
   telefono?: string;
 
-  @IsOptional()
   @IsEmail()
-  email?: string;
+  email: string;
 
   @IsOptional()
   @IsEmail()

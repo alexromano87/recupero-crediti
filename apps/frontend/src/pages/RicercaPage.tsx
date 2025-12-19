@@ -1,5 +1,5 @@
 // apps/frontend/src/pages/RicercaPage.tsx
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Search,
   ChevronRight,
@@ -9,8 +9,18 @@ import {
   FileText,
   Bell,
   Ticket,
+  X,
+  ArrowRight,
+  CalendarDays,
+  Clock,
+  CheckCircle,
+  XCircle,
+  Banknote,
+  AlertTriangle,
+  PlayCircle,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { Pagination } from '../components/Pagination';
 
 import type { Cliente } from '../api/clienti';
 import { fetchClienti } from '../api/clienti';
@@ -20,6 +30,10 @@ import {
   getDebitoreDisplayName,
   type DebitoreWithClientiCount,
 } from '../api/debitori';
+import type { Pratica } from '../api/pratiche';
+import { fetchPratiche, formatCurrency, getDebitoreDisplayName as getPraticaDebitoreDisplayName } from '../api/pratiche';
+import { fetchAlerts, type Alert } from '../api/alerts';
+import { fetchTickets, type Ticket as TicketType, type TicketPriorita } from '../api/tickets';
 import { useToast } from '../components/ui/ToastProvider';
 import { DebitoreDetailModal } from '../components/ui/DebitoreDetailModal';
 
@@ -50,13 +64,11 @@ export function RicercaPage() {
   // === Stato dati ===
   const [clienti, setClienti] = useState<Cliente[]>([]);
   const [debitori, setDebitori] = useState<DebitoreWithClientiCount[]>([]);
+  const [pratiche, setPratiche] = useState<Pratica[]>([]);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [tickets, setTickets] = useState<TicketType[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-
-  // Placeholder per quando avremo API anche per questi
-  const [pratiche] = useState<any[]>([]);
-  const [alerts] = useState<any[]>([]);
-  const [tickets] = useState<any[]>([]);
 
   // === Stato filtri ricerca ===
   const [termineRicerca, setTermineRicerca] = useState('');
@@ -66,12 +78,24 @@ export function RicercaPage() {
   const [filtroStato, setFiltroStato] = useState('tutti');
   const [valoreDa, setValoreDa] = useState('');
   const [valoreA, setValoreA] = useState('');
+  const [tipoImporto, setTipoImporto] = useState<'capitale' | 'interessi' | 'anticipazioni' | 'compensi'>('capitale');
+  const [categoriaImporto, setCategoriaImporto] = useState<'affidato' | 'recuperato' | 'da_recuperare'>('affidato');
   const [risultati, setRisultati] = useState<RisultatoRicerca[]>([]);
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
   const [ricercaEffettuata, setRicercaEffettuata] = useState(false);
 
   // === Stato modale debitore ===
   const [selectedDebitore, setSelectedDebitore] = useState<Debitore | null>(null);
   const [isDebitoreModalOpen, setIsDebitoreModalOpen] = useState(false);
+
+  // === Stato modale pratica ===
+  const [selectedPratica, setSelectedPratica] = useState<Pratica | null>(null);
+  const [isPraticaModalOpen, setIsPraticaModalOpen] = useState(false);
+
+  // === Stato modale ticket ===
+  const [selectedTicket, setSelectedTicket] = useState<TicketType | null>(null);
+  const [isTicketModalOpen, setIsTicketModalOpen] = useState(false);
 
   const navigate = useNavigate();
   const { error: toastError } = useToast();
@@ -81,12 +105,18 @@ export function RicercaPage() {
     const load = async () => {
       try {
         setLoading(true);
-        const [clientiData, debitoriData] = await Promise.all([
+        const [clientiData, debitoriData, praticheData, alertsData, ticketsData] = await Promise.all([
           fetchClienti(true), // Include anche disattivati per ricerca completa
           fetchDebitoriWithClientiCount(true), // Include conteggio clienti per badge orfano
+          fetchPratiche({ includeInactive: true }), // Include tutte le pratiche
+          fetchAlerts(true), // Include tutti gli alert
+          fetchTickets(true), // Include tutti i ticket
         ]);
         setClienti(clientiData);
         setDebitori(debitoriData);
+        setPratiche(praticheData);
+        setAlerts(alertsData);
+        setTickets(ticketsData);
       } catch (e: any) {
         const msg = e?.message ?? 'Errore nel recupero dei dati';
         setError(msg);
@@ -129,14 +159,19 @@ export function RicercaPage() {
   };
 
   // === Helpers per label e icone ===
-  const getClienteNome = (id: string) => {
-    const cliente = clienti.find((c) => c.id === id);
-    return cliente ? cliente.ragioneSociale : 'N/D';
-  };
-
-  const getDebitoreNome = (id: string) => {
-    const debitore = debitori.find((d) => d.id === id);
-    return debitore ? debitore.ragioneSociale : 'N/D';
+  const getPrioritaBadgeColor = (priorita: TicketPriorita) => {
+    switch (priorita) {
+      case 'urgente':
+        return 'bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-400';
+      case 'alta':
+        return 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-400';
+      case 'normale':
+        return 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400';
+      case 'bassa':
+        return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400';
+      default:
+        return 'bg-slate-100 text-slate-700 dark:bg-slate-700 dark:text-slate-300';
+    }
   };
 
   const getPraticaNome = (id: string | null | undefined) => {
@@ -205,11 +240,7 @@ export function RicercaPage() {
   const visualizzaDettaglio = (risultato: RisultatoRicerca) => {
     switch (risultato.tipo) {
       case 'cliente':
-        if (risultato.data?.id) {
-          navigate(`/clienti/${risultato.data.id}`);
-        } else {
-          navigate('/clienti');
-        }
+        navigate('/clienti');
         break;
       case 'debitore':
         // Apre la modale con i dettagli del debitore
@@ -217,13 +248,17 @@ export function RicercaPage() {
         setIsDebitoreModalOpen(true);
         break;
       case 'pratica':
-        navigate('/pratiche');
+        // Apre la modale con i dettagli della pratica
+        setSelectedPratica(risultato.data as Pratica);
+        setIsPraticaModalOpen(true);
         break;
       case 'alert':
         navigate('/alert');
         break;
       case 'ticket':
-        navigate('/ticket');
+        // Apre la modale con i dettagli del ticket
+        setSelectedTicket(risultato.data as TicketType);
+        setIsTicketModalOpen(true);
         break;
       default:
         break;
@@ -240,6 +275,19 @@ export function RicercaPage() {
   const handleDebitoreLinked = () => {
     // Potresti voler aggiornare i risultati di ricerca qui
     // Per ora non facciamo nulla, la modale si aggiornerà da sola
+  };
+
+  // Handler per chiusura modale pratica
+  const handleClosePraticaModal = () => {
+    setIsPraticaModalOpen(false);
+    setSelectedPratica(null);
+  };
+
+  // Handler per navigare alla pratica
+  const handleGoToPratica = () => {
+    if (selectedPratica?.id) {
+      navigate(`/pratiche?id=${selectedPratica.id}`);
+    }
   };
 
 
@@ -315,7 +363,43 @@ export function RicercaPage() {
 
         let matchValore = true;
         if (valoreDa || valoreA) {
-          const capitaleNum = parseFloat(p.capitale) || 0;
+          // Determina quale campo usare in base al tipo e categoria
+          let valoreDaConfronto = 0;
+
+          if (tipoImporto === 'capitale') {
+            if (categoriaImporto === 'affidato') {
+              valoreDaConfronto = parseFloat(p.capitale) || 0;
+            } else if (categoriaImporto === 'recuperato') {
+              valoreDaConfronto = parseFloat(p.importoRecuperatoCapitale) || 0;
+            } else if (categoriaImporto === 'da_recuperare') {
+              valoreDaConfronto = (parseFloat(p.capitale) || 0) - (parseFloat(p.importoRecuperatoCapitale) || 0);
+            }
+          } else if (tipoImporto === 'interessi') {
+            if (categoriaImporto === 'affidato') {
+              valoreDaConfronto = parseFloat(p.interessi) || 0;
+            } else if (categoriaImporto === 'recuperato') {
+              valoreDaConfronto = parseFloat(p.interessiRecuperati) || 0;
+            } else if (categoriaImporto === 'da_recuperare') {
+              valoreDaConfronto = (parseFloat(p.interessi) || 0) - (parseFloat(p.interessiRecuperati) || 0);
+            }
+          } else if (tipoImporto === 'anticipazioni') {
+            if (categoriaImporto === 'affidato') {
+              valoreDaConfronto = parseFloat(p.anticipazioni) || 0;
+            } else if (categoriaImporto === 'recuperato') {
+              valoreDaConfronto = parseFloat(p.importoRecuperatoAnticipazioni) || 0;
+            } else if (categoriaImporto === 'da_recuperare') {
+              valoreDaConfronto = (parseFloat(p.anticipazioni) || 0) - (parseFloat(p.importoRecuperatoAnticipazioni) || 0);
+            }
+          } else if (tipoImporto === 'compensi') {
+            if (categoriaImporto === 'affidato') {
+              valoreDaConfronto = parseFloat(p.compensiLegali) || 0;
+            } else if (categoriaImporto === 'recuperato') {
+              valoreDaConfronto = parseFloat(p.compensiLiquidati) || 0;
+            } else if (categoriaImporto === 'da_recuperare') {
+              valoreDaConfronto = (parseFloat(p.compensiLegali) || 0) - (parseFloat(p.compensiLiquidati) || 0);
+            }
+          }
+
           const da = valoreDa
             ? parseFloat(formatoItalianoANumero(valoreDa))
             : 0;
@@ -324,11 +408,11 @@ export function RicercaPage() {
             : Infinity;
 
           if (valoreDa && valoreA) {
-            matchValore = capitaleNum >= da && capitaleNum <= a;
+            matchValore = valoreDaConfronto >= da && valoreDaConfronto <= a;
           } else if (valoreDa) {
-            matchValore = capitaleNum >= da;
+            matchValore = valoreDaConfronto >= da;
           } else if (valoreA) {
-            matchValore = capitaleNum <= a;
+            matchValore = valoreDaConfronto <= a;
           }
         }
 
@@ -387,7 +471,7 @@ export function RicercaPage() {
       ];
     }
 
-    // === TICKETS (placeholder) ===
+    // === TICKETS ===
     if (filtroTipo === 'tutti' || filtroTipo === 'tickets') {
       let ticketsTrovati = tickets.filter((t: any) => {
         const pratica = pratiche.find((p: any) => p.id === t.praticaId);
@@ -399,6 +483,7 @@ export function RicercaPage() {
           : null;
 
         return (
+          String(t.numeroTicket).includes(termine) ||
           t.oggetto?.toLowerCase().includes(termine) ||
           t.descrizione?.toLowerCase().includes(termine) ||
           t.autore?.toLowerCase().includes(termine) ||
@@ -551,39 +636,83 @@ export function RicercaPage() {
               </select>
             </div>
 
-            {/* Valore capitale */}
-            <div>
-              <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1.5">
-                Valore capitale (€){' '}
-                {filtroTipo === 'pratiche' || filtroTipo === 'tutti'
-                  ? ''
-                  : ' (solo pratiche)'}
-              </label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={valoreDa}
-                  onChange={(e) => setValoreDa(e.target.value)}
-                  onFocus={(e) => handleValoreFocus('da', e.target.value)}
-                  onBlur={(e) => handleValoreBlur('da', e.target.value)}
-                  placeholder="Da (es. 1.000,00)"
-                  disabled={
-                    filtroTipo !== 'pratiche' && filtroTipo !== 'tutti'
-                  }
-                  className="flex-1 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-xs text-slate-900 shadow-sm placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-950/80 dark:text-slate-50 dark:placeholder:text-slate-500 dark:disabled:bg-slate-900/60"
-                />
-                <input
-                  type="text"
-                  value={valoreA}
-                  onChange={(e) => setValoreA(e.target.value)}
-                  onFocus={(e) => handleValoreFocus('a', e.target.value)}
-                  onBlur={(e) => handleValoreBlur('a', e.target.value)}
-                  placeholder="A (es. 50.000,00)"
-                  disabled={
-                    filtroTipo !== 'pratiche' && filtroTipo !== 'tutti'
-                  }
-                  className="flex-1 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-xs text-slate-900 shadow-sm placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-950/80 dark:text-slate-50 dark:placeholder:text-slate-500 dark:disabled:bg-slate-900/60"
-                />
+            {/* Filtri importi avanzati */}
+            <div className="space-y-3">
+              {/* Tipo importo */}
+              <div>
+                <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1.5">
+                  Tipo importo{' '}
+                  {filtroTipo === 'pratiche' || filtroTipo === 'tutti'
+                    ? ''
+                    : ' (solo pratiche)'}
+                </label>
+                <select
+                  value={tipoImporto}
+                  onChange={(e) => setTipoImporto(e.target.value as 'capitale' | 'interessi' | 'anticipazioni' | 'compensi')}
+                  disabled={filtroTipo !== 'pratiche' && filtroTipo !== 'tutti'}
+                  className="w-full rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-xs text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-950/80 dark:text-slate-50 dark:disabled:bg-slate-900/60"
+                >
+                  <option value="capitale">Capitale</option>
+                  <option value="interessi">Interessi</option>
+                  <option value="anticipazioni">Anticipazioni</option>
+                  <option value="compensi">Compensi legali</option>
+                </select>
+              </div>
+
+              {/* Categoria importo */}
+              <div>
+                <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1.5">
+                  Categoria{' '}
+                  {filtroTipo === 'pratiche' || filtroTipo === 'tutti'
+                    ? ''
+                    : ' (solo pratiche)'}
+                </label>
+                <select
+                  value={categoriaImporto}
+                  onChange={(e) => setCategoriaImporto(e.target.value as 'affidato' | 'recuperato' | 'da_recuperare')}
+                  disabled={filtroTipo !== 'pratiche' && filtroTipo !== 'tutti'}
+                  className="w-full rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-xs text-slate-900 shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-950/80 dark:text-slate-50 dark:disabled:bg-slate-900/60"
+                >
+                  <option value="affidato">Affidato</option>
+                  <option value="recuperato">Recuperato</option>
+                  <option value="da_recuperare">Da recuperare</option>
+                </select>
+              </div>
+
+              {/* Range valore */}
+              <div>
+                <label className="block text-[11px] font-medium text-slate-600 dark:text-slate-300 mb-1.5">
+                  Valore (€){' '}
+                  {filtroTipo === 'pratiche' || filtroTipo === 'tutti'
+                    ? ''
+                    : ' (solo pratiche)'}
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={valoreDa}
+                    onChange={(e) => setValoreDa(e.target.value)}
+                    onFocus={(e) => handleValoreFocus('da', e.target.value)}
+                    onBlur={(e) => handleValoreBlur('da', e.target.value)}
+                    placeholder="Da (es. 1.000,00)"
+                    disabled={
+                      filtroTipo !== 'pratiche' && filtroTipo !== 'tutti'
+                    }
+                    className="flex-1 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-xs text-slate-900 shadow-sm placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-950/80 dark:text-slate-50 dark:placeholder:text-slate-500 dark:disabled:bg-slate-900/60"
+                  />
+                  <input
+                    type="text"
+                    value={valoreA}
+                    onChange={(e) => setValoreA(e.target.value)}
+                    onFocus={(e) => handleValoreFocus('a', e.target.value)}
+                    onBlur={(e) => handleValoreBlur('a', e.target.value)}
+                    placeholder="A (es. 50.000,00)"
+                    disabled={
+                      filtroTipo !== 'pratiche' && filtroTipo !== 'tutti'
+                    }
+                    className="flex-1 rounded-lg border border-slate-200 bg-white/95 px-3 py-2 text-xs text-slate-900 shadow-sm placeholder:text-slate-300 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 disabled:cursor-not-allowed disabled:bg-slate-100 dark:border-slate-700 dark:bg-slate-950/80 dark:text-slate-50 dark:placeholder:text-slate-500 dark:disabled:bg-slate-900/60"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -594,8 +723,8 @@ export function RicercaPage() {
               Suggerimento:{' '}
             </span>
             Puoi cercare per ragione sociale, email, telefono, fase, importi o
-            note. Usa il filtro “Valore” per cercare pratiche in un range di
-            capitale specifico.
+            note. Usa i filtri avanzati per cercare per tipo importo (capitale, interessi, anticipazioni, compensi)
+            e categoria (affidato, recuperato, da recuperare).
           </div>
         </div>
       </div>
@@ -639,8 +768,16 @@ export function RicercaPage() {
             </p>
             {(valoreDa || valoreA) && (
               <div className="flex items-center gap-2">
-                <span className="text-[11px] text-slate-500">Filtro valore:</span>
+                <span className="text-[11px] text-slate-500">Filtro importi:</span>
                 <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-[11px] font-medium text-indigo-800 dark:bg-indigo-900/60 dark:text-indigo-100">
+                  {tipoImporto === 'capitale' && 'Capitale'}
+                  {tipoImporto === 'interessi' && 'Interessi'}
+                  {tipoImporto === 'anticipazioni' && 'Anticipazioni'}
+                  {tipoImporto === 'compensi' && 'Compensi'}{' '}
+                  ({categoriaImporto === 'affidato' && 'Affidato'}
+                  {categoriaImporto === 'recuperato' && 'Recuperato'}
+                  {categoriaImporto === 'da_recuperare' && 'Da recuperare'})
+                  {' - '}
                   {valoreDa && `Da €${valoreDa}`}{' '}
                   {valoreDa && valoreA && ' - '}{' '}
                   {valoreA && `A €${valoreA}`}
@@ -651,7 +788,9 @@ export function RicercaPage() {
 
           {/* Elenco risultati */}
           <div className="divide-y divide-slate-100 dark:divide-slate-800">
-            {risultati.map((risultato, index) => {
+            {risultati
+              .slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)
+              .map((risultato, index) => {
               const Icon = getTipoIcon(risultato.tipo);
 
               return (
@@ -801,19 +940,86 @@ export function RicercaPage() {
                           )}
 
                           {risultato.tipo === 'pratica' && (
-                            <p className="italic text-slate-500 dark:text-slate-400">
-                              Dettagli pratica verranno popolati quando le API
-                              saranno disponibili.
-                            </p>
+                            <>
+                              <p>
+                                <span className="font-medium">Cliente:</span>{' '}
+                                {risultato.data.cliente?.ragioneSociale}
+                              </p>
+                              <p>
+                                <span className="font-medium">Debitore:</span>{' '}
+                                {getPraticaDebitoreDisplayName(risultato.data.debitore)}
+                              </p>
+                              <p>
+                                <span className="font-medium">Capitale:</span> €{' '}
+                                {formatCurrency(risultato.data.capitale)}
+                              </p>
+                              <p>
+                                <span className="font-medium">Stato:</span>{' '}
+                                {risultato.data.aperta ? 'Aperta' : 'Chiusa'}
+                              </p>
+                            </>
                           )}
 
-                          {(risultato.tipo === 'alert' ||
-                            risultato.tipo === 'ticket') && (
-                            <p className="italic text-slate-500 dark:text-slate-400">
-                              Dettagli {risultato.tipo} verranno popolati con i
-                              dati reali una volta implementate le relative
-                              entità.
-                            </p>
+                          {risultato.tipo === 'alert' && (
+                            <>
+                              <p>
+                                <span className="font-medium">Descrizione:</span>{' '}
+                                {risultato.data.descrizione}
+                              </p>
+                              <p>
+                                <span className="font-medium">Scadenza:</span>{' '}
+                                {new Date(risultato.data.dataScadenza).toLocaleDateString('it-IT')}
+                              </p>
+                              <p>
+                                <span className="font-medium">Destinatario:</span>{' '}
+                                {risultato.data.destinatario === 'studio' ? 'Studio' : 'Cliente'}
+                              </p>
+                              <p>
+                                <span className="font-medium">Stato:</span>{' '}
+                                {risultato.data.stato === 'in_gestione' ? 'In gestione' : 'Chiuso'}
+                              </p>
+                              {risultato.data.pratica && (
+                                <p>
+                                  <span className="font-medium">Pratica:</span>{' '}
+                                  {risultato.data.pratica.cliente?.ragioneSociale} vs{' '}
+                                  {getPraticaDebitoreDisplayName(risultato.data.pratica.debitore)}
+                                </p>
+                              )}
+                            </>
+                          )}
+
+                          {risultato.tipo === 'ticket' && (
+                            <>
+                              <p>
+                                <span className="font-medium">Numero Ticket:</span>{' '}
+                                <span className="font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                                  #{risultato.data.numeroTicket}
+                                </span>
+                              </p>
+                              <p>
+                                <span className="font-medium">Descrizione:</span>{' '}
+                                {risultato.data.descrizione}
+                              </p>
+                              <p>
+                                <span className="font-medium">Richiedente:</span>{' '}
+                                {risultato.data.autore}
+                              </p>
+                              <p>
+                                <span className="font-medium">Priorità:</span>{' '}
+                                {risultato.data.priorita.charAt(0).toUpperCase() + risultato.data.priorita.slice(1)}
+                              </p>
+                              <p>
+                                <span className="font-medium">Stato:</span>{' '}
+                                {risultato.data.stato === 'aperto' ? 'Aperto' : risultato.data.stato === 'in_gestione' ? 'In gestione' : 'Chiuso'}
+                              </p>
+                              {risultato.data.pratica && (
+                                <p>
+                                  <span className="font-medium">Pratica:</span>{' '}
+                                  {risultato.data.pratica.cliente?.ragioneSociale} vs{' '}
+                                  {getPraticaDebitoreDisplayName(risultato.data.pratica.debitore)}
+                                </p>
+                              )}
+                            </>
                           )}
                         </div>
                       </div>
@@ -826,6 +1032,14 @@ export function RicercaPage() {
               );
             })}
           </div>
+
+          <Pagination
+            currentPage={currentPage}
+            totalPages={Math.ceil(risultati.length / ITEMS_PER_PAGE)}
+            totalItems={risultati.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+            onPageChange={setCurrentPage}
+          />
         </div>
       )}
 
@@ -836,6 +1050,349 @@ export function RicercaPage() {
         debitore={selectedDebitore}
         onLinked={handleDebitoreLinked}
       />
+
+      {/* Modale dettaglio pratica */}
+      {isPraticaModalOpen && selectedPratica && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={handleClosePraticaModal}
+          />
+          <div className="relative z-10 w-full max-w-2xl mx-4 bg-white rounded-2xl shadow-2xl dark:bg-slate-900">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 rounded-xl bg-indigo-100 dark:bg-indigo-900/50">
+                  <FileText className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-50">
+                    Dettaglio Pratica
+                  </h2>
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
+                    {selectedPratica.cliente?.ragioneSociale} vs {getPraticaDebitoreDisplayName(selectedPratica.debitore)}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={handleClosePraticaModal}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg dark:hover:text-slate-300"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-5 space-y-4 max-h-[70vh] overflow-auto">
+              {/* Stato pratica */}
+              <div className="flex items-center gap-2">
+                {selectedPratica.aperta ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400">
+                    <Clock className="h-3.5 w-3.5" />
+                    In corso
+                  </span>
+                ) : selectedPratica.esito === 'positivo' ? (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-400">
+                    <CheckCircle className="h-3.5 w-3.5" />
+                    Chiusa con esito positivo
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold bg-rose-100 text-rose-700 dark:bg-rose-900/50 dark:text-rose-400">
+                    <XCircle className="h-3.5 w-3.5" />
+                    Chiusa con esito negativo
+                  </span>
+                )}
+                {!selectedPratica.attivo && (
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400">
+                    Disattivata
+                  </span>
+                )}
+              </div>
+
+              {/* Informazioni principali */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Building2 className="h-4 w-4 text-slate-400" />
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                      Cliente
+                    </span>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {selectedPratica.cliente?.ragioneSociale || 'N/D'}
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80">
+                  <div className="flex items-center gap-2 mb-2">
+                    <User className="h-4 w-4 text-slate-400" />
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                      Debitore
+                    </span>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {getPraticaDebitoreDisplayName(selectedPratica.debitore)}
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Banknote className="h-4 w-4 text-slate-400" />
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                      Capitale
+                    </span>
+                  </div>
+                  <p className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                    € {formatCurrency(selectedPratica.capitale)}
+                  </p>
+                </div>
+
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800/80">
+                  <div className="flex items-center gap-2 mb-2">
+                    <CalendarDays className="h-4 w-4 text-slate-400" />
+                    <span className="text-xs font-medium text-slate-500 dark:text-slate-400 uppercase tracking-wide">
+                      Data affidamento
+                    </span>
+                  </div>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100">
+                    {selectedPratica.dataAffidamento
+                      ? new Date(selectedPratica.dataAffidamento).toLocaleDateString('it-IT')
+                      : 'N/D'}
+                  </p>
+                </div>
+              </div>
+
+              {/* Importi recuperati */}
+              <div className="p-4 rounded-xl bg-gradient-to-r from-emerald-50 to-teal-50 dark:from-emerald-900/20 dark:to-teal-900/20 border border-emerald-200 dark:border-emerald-800">
+                <h3 className="text-xs font-semibold text-emerald-800 dark:text-emerald-300 uppercase tracking-wide mb-3">
+                  Importi Recuperati
+                </h3>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  <div>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mb-1">Capitale</p>
+                    <p className="font-bold text-emerald-900 dark:text-emerald-100">
+                      € {formatCurrency(selectedPratica.importoRecuperatoCapitale || 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mb-1">Anticipazioni</p>
+                    <p className="font-bold text-emerald-900 dark:text-emerald-100">
+                      € {formatCurrency(selectedPratica.importoRecuperatoAnticipazioni || 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mb-1">Compensi legali</p>
+                    <p className="font-bold text-emerald-900 dark:text-emerald-100">
+                      € {formatCurrency(selectedPratica.compensiLiquidati || 0)}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-emerald-600 dark:text-emerald-400 mb-1">Interessi</p>
+                    <p className="font-bold text-emerald-900 dark:text-emerald-100">
+                      € {formatCurrency(selectedPratica.interessiRecuperati || 0)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Note */}
+              {selectedPratica.note && (
+                <div className="p-4 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                  <h3 className="text-xs font-semibold text-slate-700 dark:text-slate-300 uppercase tracking-wide mb-2">
+                    Note
+                  </h3>
+                  <p className="text-sm text-slate-600 dark:text-slate-400 whitespace-pre-wrap">
+                    {selectedPratica.note}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer con pulsante "Vai alla pratica" */}
+            <div className="flex justify-end gap-3 p-4 border-t border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+              <button
+                onClick={handleClosePraticaModal}
+                className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 dark:text-slate-300 dark:bg-slate-800 dark:border-slate-600 dark:hover:bg-slate-700"
+              >
+                Chiudi
+              </button>
+              <button
+                onClick={handleGoToPratica}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 transition"
+              >
+                Vai alla pratica
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modale Dettaglio Ticket */}
+      {isTicketModalOpen && selectedTicket && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-slate-700">
+              <div className="flex-1">
+                <h2 className="text-lg font-bold text-slate-900 dark:text-slate-100">
+                  {selectedTicket.oggetto}
+                </h2>
+                <div className="flex items-center gap-2 mt-2 flex-wrap">
+                  <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${getPrioritaBadgeColor(selectedTicket.priorita)}`}>
+                    {selectedTicket.priorita === 'urgente' && <AlertTriangle className="h-3 w-3" />}
+                    {selectedTicket.priorita.charAt(0).toUpperCase() + selectedTicket.priorita.slice(1)}
+                  </span>
+                  {selectedTicket.stato === 'aperto' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-100 text-amber-700 dark:bg-amber-900/50 dark:text-amber-400">
+                      <Clock className="h-3 w-3" />
+                      Aperto
+                    </span>
+                  )}
+                  {selectedTicket.stato === 'in_gestione' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-400">
+                      <PlayCircle className="h-3 w-3" />
+                      In gestione
+                    </span>
+                  )}
+                  {selectedTicket.stato === 'chiuso' && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-300">
+                      <CheckCircle className="h-3 w-3" />
+                      Chiuso
+                    </span>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => setIsTicketModalOpen(false)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-lg"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="flex-1 overflow-auto p-6 space-y-4">
+              {/* Descrizione */}
+              <div>
+                <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">
+                  Descrizione
+                </h3>
+                <p className="text-sm text-slate-700 dark:text-slate-300">
+                  {selectedTicket.descrizione}
+                </p>
+              </div>
+
+              {/* Info */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">
+                    Numero Ticket
+                  </h3>
+                  <p className="text-sm font-mono font-bold text-indigo-600 dark:text-indigo-400">
+                    #{selectedTicket.numeroTicket}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">
+                    Richiedente
+                  </h3>
+                  <p className="text-sm text-slate-700 dark:text-slate-300">
+                    {selectedTicket.autore}
+                  </p>
+                </div>
+                <div>
+                  <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-1">
+                    Data Creazione
+                  </h3>
+                  <p className="text-sm text-slate-700 dark:text-slate-300">
+                    {new Date(selectedTicket.dataCreazione).toLocaleString('it-IT')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Pratica */}
+              {selectedTicket.pratica ? (
+                <div>
+                  <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">
+                    Pratica Collegata
+                  </h3>
+                  <div className="rounded-lg bg-slate-50 dark:bg-slate-800 p-3">
+                    <p className="text-sm text-slate-700 dark:text-slate-300">
+                      <strong>Cliente:</strong> {selectedTicket.pratica.cliente?.ragioneSociale}
+                    </p>
+                    <p className="text-sm text-slate-700 dark:text-slate-300 mt-1">
+                      <strong>Debitore:</strong> {getPraticaDebitoreDisplayName(selectedTicket.pratica.debitore)}
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">
+                    Pratica
+                  </h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 italic">
+                    Richiesta generica (non collegata a pratica)
+                  </p>
+                </div>
+              )}
+
+              {/* Messaggi */}
+              {selectedTicket.messaggi && selectedTicket.messaggi.length > 0 && (
+                <div>
+                  <h3 className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase mb-2">
+                    Messaggi ({selectedTicket.messaggi.length})
+                  </h3>
+                  <div className="space-y-2">
+                    {selectedTicket.messaggi.map((msg) => (
+                      <div
+                        key={msg.id}
+                        className={`flex ${msg.autore === 'studio' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-[70%] rounded-lg p-3 ${
+                            msg.autore === 'studio'
+                              ? 'bg-indigo-600 text-white'
+                              : 'bg-slate-100 text-slate-900 dark:bg-slate-800 dark:text-slate-100'
+                          }`}
+                        >
+                          <p className="text-xs font-medium mb-1">
+                            {msg.autore === 'studio' ? 'Studio' : 'Cliente'}
+                          </p>
+                          <p className="text-sm">{msg.testo}</p>
+                          <p className="text-[10px] mt-1 opacity-70">
+                            {new Date(msg.dataInvio).toLocaleString('it-IT')}
+                          </p>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex justify-end gap-2">
+              <button
+                onClick={() => setIsTicketModalOpen(false)}
+                className="px-4 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded-lg hover:bg-slate-50 dark:text-slate-300 dark:bg-slate-800 dark:border-slate-600 dark:hover:bg-slate-700"
+              >
+                Chiudi
+              </button>
+              <button
+                onClick={() => {
+                  setIsTicketModalOpen(false);
+                  navigate(`/ticket?id=${selectedTicket.id}`);
+                }}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-white bg-indigo-600 rounded-lg hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 transition"
+              >
+                Vai al ticket
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

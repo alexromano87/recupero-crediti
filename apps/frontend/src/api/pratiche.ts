@@ -1,6 +1,8 @@
 // apps/frontend/src/api/pratiche.ts
 import { api } from './config';
 import type { Fase } from './fasi';
+import type { Avvocato } from './avvocati';
+import type { MovimentoFinanziario } from './movimenti-finanziari';
 
 // ====== Tipi ======
 
@@ -41,6 +43,10 @@ export interface Pratica {
   };
   fase?: Fase; // Oggetto Fase completo dal DB
 
+  // Avvocati e movimenti finanziari
+  avvocati?: Avvocato[];
+  movimentiFinanziari?: MovimentoFinanziario[];
+
   // Stato
   aperta: boolean;
   esito: EsitoPratica;
@@ -75,6 +81,7 @@ export interface Pratica {
 export interface PraticaCreatePayload {
   clienteId: string;
   debitoreId: string;
+  avvocatiIds?: string[]; // Array di UUID avvocati da associare
   faseId?: string; // UUID della fase, opzionale (default: prima fase)
   aperta?: boolean;
   esito?: EsitoPratica;
@@ -209,7 +216,7 @@ export function isInFaseChiusura(pratica: Pratica): boolean {
   return pratica.fase?.isFaseChiusura || false;
 }
 
-export function getDebitoreDisplayName(debitore?: Pratica['debitore']): string {
+export function getDebitoreDisplayName(debitore?: { tipoSoggetto?: 'persona_fisica' | 'persona_giuridica'; nome?: string; cognome?: string; ragioneSociale?: string }): string {
   if (!debitore) return '(Debitore non trovato)';
   if (debitore.tipoSoggetto === 'persona_fisica') {
     const full = `${debitore.nome ?? ''} ${debitore.cognome ?? ''}`.trim();

@@ -6,8 +6,11 @@ import {
   OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { ClienteDebitore } from '../relazioni/cliente-debitore.entity';
+import { Studio } from '../studi/studio.entity';
 
 export type TipoSoggetto = 'persona_fisica' | 'persona_giuridica';
 
@@ -29,6 +32,14 @@ export class Debitore {
   // --- Stato attivo/disattivato (soft-delete) ---
   @Column({ default: true })
   attivo: boolean;
+
+  // --- Studio di appartenenza ---
+  @Column({ type: 'uuid', nullable: true })
+  studioId: string | null;
+
+  @ManyToOne(() => Studio, (studio) => studio.debitori, { nullable: true })
+  @JoinColumn({ name: 'studioId' })
+  studio: Studio | null;
 
   @Column({ type: 'varchar', length: 20 })
   tipoSoggetto: TipoSoggetto;

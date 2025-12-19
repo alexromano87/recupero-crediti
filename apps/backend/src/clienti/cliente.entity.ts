@@ -4,9 +4,12 @@ import {
   Entity,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
+  ManyToOne,
+  JoinColumn,
 } from 'typeorm';
 import { OneToMany } from 'typeorm';
 import { ClienteDebitore } from '../relazioni/cliente-debitore.entity';
+import { Studio } from '../studi/studio.entity';
 
 export type TipologiaAzienda =
   | 'impresa_individuale'
@@ -32,6 +35,14 @@ export class Cliente {
   // --- Stato attivo/disattivato (soft-delete) ---
   @Column({ default: true })
   attivo: boolean;
+
+  // --- Studio di appartenenza ---
+  @Column({ type: 'uuid', nullable: true })
+  studioId: string | null;
+
+  @ManyToOne(() => Studio, (studio) => studio.clienti, { nullable: true })
+  @JoinColumn({ name: 'studioId' })
+  studio: Studio | null;
 
   @Column()
   ragioneSociale: string;
@@ -78,11 +89,28 @@ export class Cliente {
   @Column({ nullable: true })
   telefono?: string;
 
-  @Column({ nullable: true })
-  email?: string;
+  @Column()
+  email: string;
 
   @Column({ nullable: true })
   pec?: string;
+
+  // --- Configurazione condivisione dashboard ---
+  @Column({ type: 'json', nullable: true })
+  configurazioneCondivisione?: {
+    abilitata: boolean;
+    dashboard: {
+      stats: boolean;
+      kpi: boolean;
+    };
+    pratiche: {
+      elenco: boolean;
+      dettagli: boolean;
+      documenti: boolean;
+      movimentiFinanziari: boolean;
+      timeline: boolean;
+    };
+  };
 
   @OneToMany(() => ClienteDebitore, (cd) => cd.cliente)
   clientiDebitori: ClienteDebitore[];

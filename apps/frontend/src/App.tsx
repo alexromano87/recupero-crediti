@@ -1,67 +1,57 @@
 import { Routes, Route } from 'react-router-dom';
 import { AppLayout } from './layout/AppLayout';
+import { ProtectedRoute } from './components/ProtectedRoute';
+import LoginPage from './pages/LoginPage';
+import { DashboardPage } from './pages/DashboardPage';
+import { DashboardCondivisaPage } from './pages/DashboardCondivisaPage';
 import { ClientiPage } from './pages/ClientiPage';
 import { RicercaPage } from './pages/RicercaPage';
 import { DebitoriPage } from './pages/DebitoriPage';
 import { PratichePage } from './pages/PratichePage';
-
-
-function DashboardPage() {
-  return (
-    <div className="space-y-4">
-      <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-50">
-        Dashboard
-      </h2>
-      <p className="text-sm text-slate-600 dark:text-slate-400">
-        Qui metteremo KPI, grafici e riepilogo pratiche.
-      </p>
-    </div>
-  );
-}
-
-function AlertPage() {
-  return (
-    <div className="space-y-4">
-      <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-50">
-        Alert & scadenze
-      </h2>
-      <p className="text-sm text-slate-600 dark:text-slate-400">
-        Qui vedremo il calendario delle scadenze, gli alert in gestione e quelli chiusi,
-        con filtri per pratica, cliente e responsabile.
-      </p>
-    </div>
-  );
-}
-
-function TicketClientiPage() {
-  return (
-    <div className="space-y-4">
-      <h2 className="text-xl font-semibold text-slate-900 dark:text-slate-50">
-        Ticket clienti
-      </h2>
-      <p className="text-sm text-slate-600 dark:text-slate-400">
-        Qui gestiremo i ticket aperti dalle società clienti: stato, assegnatario,
-        cronologia e collegamento alle pratiche.
-      </p>
-    </div>
-  );
-}
-
+import { PraticaDetailPage } from './pages/PraticaDetailPage';
+import { AvvocatiPage } from './pages/AvvocatiPage';
+import { AlertsPage } from './pages/AlertsPage';
+import { TicketsPage } from './pages/TicketsPage';
+import { DocumentiPage } from './pages/DocumentiPage';
+import { AdminUsersPage } from './pages/AdminUsersPage';
+import { StudiPage } from './pages/StudiPage';
+import AdminDashboardPage from './pages/AdminDashboardPage';
+import AdminMaintenancePage from './pages/AdminMaintenancePage';
+import AuditLogsPage from './pages/AuditLogsPage';
 
 function App() {
   return (
-    <AppLayout>
-      <Routes>
-        <Route path="/" element={<DashboardPage />} />
-        <Route path="/clienti" element={<ClientiPage />} />
-        <Route path="/clienti/:id" element={<ClientiPage />} /> 
-        <Route path="/debitori" element={<DebitoriPage />} />
-        <Route path="/pratiche" element={<PratichePage />} />
-        <Route path="/alert" element={<AlertPage />} />
-        <Route path="/ticket" element={<TicketClientiPage />} />
-        <Route path="/ricerca" element={<RicercaPage />} />
-      </Routes>
-    </AppLayout>
+    <Routes>
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/dashboard-condivisa" element={<DashboardCondivisaPage />} />
+      <Route
+        path="/*"
+        element={
+          <ProtectedRoute>
+            <AppLayout>
+              <Routes>
+                <Route path="/" element={<DashboardPage />} />
+                <Route path="/clienti" element={<ClientiPage />} />
+                <Route path="/clienti/:id" element={<ClientiPage />} />
+                <Route path="/debitori" element={<DebitoriPage />} />
+                <Route path="/pratiche" element={<PratichePage />} />
+                <Route path="/pratiche/:id" element={<PraticaDetailPage />} />
+                <Route path="/avvocati" element={<AvvocatiPage />} />
+                <Route path="/alert" element={<AlertsPage />} />
+                <Route path="/ticket" element={<TicketsPage />} />
+                <Route path="/documenti" element={<DocumentiPage />} />
+                <Route path="/ricerca" element={<RicercaPage />} />
+                <Route path="/admin/dashboard" element={<AdminDashboardPage />} />
+                <Route path="/admin/users" element={<AdminUsersPage />} />
+                <Route path="/admin/studi" element={<StudiPage />} />
+                <Route path="/admin/maintenance" element={<AdminMaintenancePage />} />
+                <Route path="/admin/audit-logs" element={<AuditLogsPage />} />
+              </Routes>
+            </AppLayout>
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
   );
 }
 

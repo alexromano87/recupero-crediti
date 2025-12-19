@@ -16,7 +16,6 @@ async function bootstrap() {
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,  // rimuove campi non definiti nei DTO
-      forbidNonWhitelisted: true,  // errore se ci sono campi extra
       transform: true, // trasforma i payload nei tipi definiti nei DTO
       transformOptions: {
         enableImplicitConversion: true, // converte tipi primitivi automaticamente
