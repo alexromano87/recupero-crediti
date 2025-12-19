@@ -22,9 +22,16 @@ export class DebitoriService {
   /**
    * Restituisce tutti i debitori.
    * @param includeInactive - se true, include anche i debitori disattivati
+   * @param studioId - se presente, filtra per studio (undefined = tutti per admin)
    */
-  async findAll(includeInactive = false): Promise<Debitore[]> {
-    const where = includeInactive ? {} : { attivo: true };
+  async findAll(includeInactive = false, studioId?: string): Promise<Debitore[]> {
+    const where: any = includeInactive ? {} : { attivo: true };
+
+    // Se studioId è definito, filtra per studio
+    if (studioId !== undefined) {
+      where.studioId = studioId;
+    }
+
     return this.repo.find({
       where,
       order: { createdAt: 'DESC' },
@@ -34,11 +41,20 @@ export class DebitoriService {
   /**
    * Restituisce tutti i debitori con il conteggio dei clienti collegati.
    * Utile per la pagina di ricerca per mostrare se un debitore è "orfano".
+   * @param includeInactive - se true, include anche i debitori disattivati
+   * @param studioId - se presente, filtra per studio (undefined = tutti per admin)
    */
   async findAllWithClientiCount(
     includeInactive = false,
+    studioId?: string,
   ): Promise<(Debitore & { clientiCount: number })[]> {
-    const where = includeInactive ? {} : { attivo: true };
+    const where: any = includeInactive ? {} : { attivo: true };
+
+    // Se studioId è definito, filtra per studio
+    if (studioId !== undefined) {
+      where.studioId = studioId;
+    }
+
     const debitori = await this.repo.find({
       where,
       order: { createdAt: 'DESC' },

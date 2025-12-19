@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   Home,
   Users,
@@ -12,9 +12,16 @@ import {
   LogOut,
   Moon,
   Sun,
+  Briefcase,
+  Folder,
+  Shield,
+  BarChart3,
+  Wrench,
+  ScrollText,
 } from 'lucide-react';
 
 import { useTheme } from '../theme/ThemeProvider';
+import { useAuth } from '../contexts/AuthContext';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -24,19 +31,96 @@ const mainNav = [
   { path: '/', label: 'Dashboard', icon: Home },
   { path: '/clienti', label: 'Clienti', icon: Users },
   { path: '/debitori', label: 'Debitori', icon: Building2 },
-  { path: '/pratiche', label: 'Pratiche', icon: FileText },
+  {
+    path: '/pratiche',
+    label: 'Pratiche',
+    icon: FileText,
+    subItems: [
+      { path: '/documenti', label: 'Documenti', icon: Folder },
+    ]
+  },
   { path: '/alert', label: 'Alert & scadenze', icon: Bell },
   { path: '/ticket', label: 'Ticket clienti', icon: MessageSquare },
   { path: '/ricerca', label: 'Report & ricerca', icon: Search },
 ];
 
+const studioNav = [
+  { path: '/avvocati', label: 'Avvocati', icon: Briefcase },
+];
+
 
 export function AppLayout({ children }: AppLayoutProps) {
   const location = useLocation();
-  const currentNav = mainNav.find((n) => n.path === location.pathname);
-  const pageTitle = currentNav?.label ?? 'Dashboard';
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
+
+  // Find current nav item including subitems
+  let currentNav = mainNav.find((n) => n.path === location.pathname);
+  if (!currentNav) {
+    for (const item of mainNav) {
+      if ('subItems' in item && item.subItems) {
+        const subItem = item.subItems.find((s: any) => s.path === location.pathname);
+        if (subItem) {
+          currentNav = subItem as any;
+          break;
+        }
+      }
+    }
+  }
+  if (!currentNav) {
+    currentNav = studioNav.find((n) => n.path === location.pathname);
+  }
+
+  // Check admin paths
+  let pageTitle = currentNav?.label ?? 'Dashboard';
+  if (location.pathname === '/admin/users') {
+    pageTitle = 'Gestione utenti';
+  } else if (location.pathname === '/admin/studi') {
+    pageTitle = 'Gestione studi';
+  } else if (location.pathname === '/admin/dashboard') {
+    pageTitle = 'Dashboard Amministrativa';
+  } else if (location.pathname === '/admin/maintenance') {
+    pageTitle = 'Manutenzione Dati';
+  } else if (location.pathname === '/admin/audit-logs') {
+    pageTitle = 'Log di Audit';
+  }
 
   const { theme, toggleTheme } = useTheme();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  const getUserInitials = () => {
+    if (!user) return 'U';
+    return `${user.nome.charAt(0)}${user.cognome.charAt(0)}`.toUpperCase();
+  };
+
+  const getUserFullName = () => {
+    if (!user) return 'Utente';
+    return `${user.nome} ${user.cognome}`;
+  };
+
+  const getRuoloLabel = () => {
+    if (!user) return 'Utente';
+    switch (user.ruolo) {
+      case 'admin':
+        return 'Admin';
+      case 'avvocato':
+        return 'Avvocato';
+      case 'collaboratore':
+        return 'Collaboratore';
+      case 'segreteria':
+        return 'Segreteria';
+      case 'cliente':
+        return 'Cliente';
+      default:
+        return 'Utente';
+    }
+  };
+
+  const isAdmin = user?.ruolo === 'admin';
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors duration-300 dark:bg-slate-950 dark:text-slate-100">
@@ -69,6 +153,78 @@ export function AppLayout({ children }: AppLayoutProps) {
               </p>
               <ul className="space-y-1">
                 {mainNav.map((item) => {
+                  const Icon = item.icon;
+                  const hasSubItems = 'subItems' in item && item.subItems && item.subItems.length > 0;
+
+                  return (
+                    <li key={item.path}>
+                      <NavLink
+                        to={item.path}
+                        className={({ isActive }) =>
+                          [
+                            'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                            isActive
+                              ? 'bg-slate-900 text-slate-50 shadow-sm shadow-slate-900/30 dark:bg-slate-900 dark:text-slate-50'
+                              : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-900/70 dark:hover:text-slate-50',
+                          ].join(' ')
+                        }
+                      >
+                        {({ isActive }) => (
+                          <>
+                            <span
+                              className={[
+                                'h-7 w-1 rounded-full bg-indigo-500 transition-all',
+                                isActive
+                                  ? 'opacity-100 translate-x-0'
+                                  : 'opacity-0 -translate-x-1 group-hover:opacity-80 group-hover:translate-x-0',
+                              ].join(' ')}
+                            />
+                            <Icon
+                              size={18}
+                              className="text-slate-500 group-hover:text-slate-900 dark:text-slate-200 dark:group-hover:text-slate-50"
+                            />
+                            <span>{item.label}</span>
+                          </>
+                        )}
+                      </NavLink>
+
+                      {hasSubItems && (
+                        <ul className="ml-8 mt-1 space-y-1">
+                          {item.subItems.map((subItem: any) => {
+                            const SubIcon = subItem.icon;
+                            return (
+                              <li key={subItem.path}>
+                                <NavLink
+                                  to={subItem.path}
+                                  className={({ isActive }) =>
+                                    [
+                                      'group flex items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors',
+                                      isActive
+                                        ? 'bg-slate-800 text-slate-50 dark:bg-slate-800 dark:text-slate-50'
+                                        : 'text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-900/50 dark:hover:text-slate-50',
+                                    ].join(' ')
+                                  }
+                                >
+                                  <SubIcon size={14} />
+                                  <span>{subItem.label}</span>
+                                </NavLink>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+
+            <div>
+              <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                Studio
+              </p>
+              <ul className="space-y-1">
+                {studioNav.map((item) => {
                   const Icon = item.icon;
                   return (
                     <li key={item.path}>
@@ -107,6 +263,171 @@ export function AppLayout({ children }: AppLayoutProps) {
               </ul>
             </div>
 
+            {isAdmin && (
+              <div>
+                <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
+                  Amministrazione
+                </p>
+                <ul className="space-y-1">
+                  <li>
+                    <NavLink
+                      to="/admin/users"
+                      className={({ isActive }) =>
+                        [
+                          'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                          isActive
+                            ? 'bg-slate-900 text-slate-50 shadow-sm shadow-slate-900/30 dark:bg-slate-900 dark:text-slate-50'
+                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-900/70 dark:hover:text-slate-50',
+                        ].join(' ')
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <span
+                            className={[
+                              'h-7 w-1 rounded-full bg-indigo-500 transition-all',
+                              isActive
+                                ? 'opacity-100 translate-x-0'
+                                : 'opacity-0 -translate-x-1 group-hover:opacity-80 group-hover:translate-x-0',
+                            ].join(' ')}
+                          />
+                          <Shield
+                            size={18}
+                            className="text-slate-500 group-hover:text-slate-900 dark:text-slate-200 dark:group-hover:text-slate-50"
+                          />
+                          <span>Gestione utenti</span>
+                        </>
+                      )}
+                    </NavLink>
+                  </li>
+                  <li>
+                    <NavLink
+                      to="/admin/studi"
+                      className={({ isActive }) =>
+                        [
+                          'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                          isActive
+                            ? 'bg-slate-900 text-slate-50 shadow-sm shadow-slate-900/30 dark:bg-slate-900 dark:text-slate-50'
+                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-900/70 dark:hover:text-slate-50',
+                        ].join(' ')
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <span
+                            className={[
+                              'h-7 w-1 rounded-full bg-indigo-500 transition-all',
+                              isActive
+                                ? 'opacity-100 translate-x-0'
+                                : 'opacity-0 -translate-x-1 group-hover:opacity-80 group-hover:translate-x-0',
+                            ].join(' ')}
+                          />
+                          <Building2
+                            size={18}
+                            className="text-slate-500 group-hover:text-slate-900 dark:text-slate-200 dark:group-hover:text-slate-50"
+                          />
+                          <span>Gestione studi</span>
+                        </>
+                      )}
+                    </NavLink>
+                  </li>
+                  <li>
+                    <NavLink
+                      to="/admin/dashboard"
+                      className={({ isActive }) =>
+                        [
+                          'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                          isActive
+                            ? 'bg-slate-900 text-slate-50 shadow-sm shadow-slate-900/30 dark:bg-slate-900 dark:text-slate-50'
+                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-900/70 dark:hover:text-slate-50',
+                        ].join(' ')
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <span
+                            className={[
+                              'h-7 w-1 rounded-full bg-indigo-500 transition-all',
+                              isActive
+                                ? 'opacity-100 translate-x-0'
+                                : 'opacity-0 -translate-x-1 group-hover:opacity-80 group-hover:translate-x-0',
+                            ].join(' ')}
+                          />
+                          <BarChart3
+                            size={18}
+                            className="text-slate-500 group-hover:text-slate-900 dark:text-slate-200 dark:group-hover:text-slate-50"
+                          />
+                          <span>Dashboard Admin</span>
+                        </>
+                      )}
+                    </NavLink>
+                  </li>
+                  <li>
+                    <NavLink
+                      to="/admin/maintenance"
+                      className={({ isActive }) =>
+                        [
+                          'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                          isActive
+                            ? 'bg-slate-900 text-slate-50 shadow-sm shadow-slate-900/30 dark:bg-slate-900 dark:text-slate-50'
+                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-900/70 dark:hover:text-slate-50',
+                        ].join(' ')
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <span
+                            className={[
+                              'h-7 w-1 rounded-full bg-indigo-500 transition-all',
+                              isActive
+                                ? 'opacity-100 translate-x-0'
+                                : 'opacity-0 -translate-x-1 group-hover:opacity-80 group-hover:translate-x-0',
+                            ].join(' ')}
+                          />
+                          <Wrench
+                            size={18}
+                            className="text-slate-500 group-hover:text-slate-900 dark:text-slate-200 dark:group-hover:text-slate-50"
+                          />
+                          <span>Manutenzione</span>
+                        </>
+                      )}
+                    </NavLink>
+                  </li>
+                  <li>
+                    <NavLink
+                      to="/admin/audit-logs"
+                      className={({ isActive }) =>
+                        [
+                          'group flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                          isActive
+                            ? 'bg-slate-900 text-slate-50 shadow-sm shadow-slate-900/30 dark:bg-slate-900 dark:text-slate-50'
+                            : 'text-slate-600 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-900/70 dark:hover:text-slate-50',
+                        ].join(' ')
+                      }
+                    >
+                      {({ isActive }) => (
+                        <>
+                          <span
+                            className={[
+                              'h-7 w-1 rounded-full bg-indigo-500 transition-all',
+                              isActive
+                                ? 'opacity-100 translate-x-0'
+                                : 'opacity-0 -translate-x-1 group-hover:opacity-80 group-hover:translate-x-0',
+                            ].join(' ')}
+                          />
+                          <ScrollText
+                            size={18}
+                            className="text-slate-500 group-hover:text-slate-900 dark:text-slate-200 dark:group-hover:text-slate-50"
+                          />
+                          <span>Log di Audit</span>
+                        </>
+                      )}
+                    </NavLink>
+                  </li>
+                </ul>
+              </div>
+            )}
+
             <div>
               <p className="px-3 pb-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400 dark:text-slate-500">
                 Sistema
@@ -131,6 +452,7 @@ export function AppLayout({ children }: AppLayoutProps) {
               <span>v0.1.0 • Dev</span>
               <button
                 type="button"
+                onClick={handleLogout}
                 className="inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-slate-600 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-900/70 dark:hover:text-slate-50"
               >
                 <LogOut size={14} />
@@ -193,14 +515,14 @@ export function AppLayout({ children }: AppLayoutProps) {
               {/* Profilo */}
               <div className="flex items-center gap-3 rounded-full border border-slate-200 bg-white px-2 py-1.5 text-xs shadow-sm shadow-slate-300/60 transition-colors duration-300 dark:border-slate-700 dark:bg-slate-900/70 dark:shadow-black/30">
                 <div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-indigo-500 to-violet-500 text-[11px] font-semibold text-white">
-                  AR
+                  {getUserInitials()}
                 </div>
                 <div className="leading-tight">
                   <p className="text-[11px] font-medium text-slate-900 dark:text-slate-100">
-                    Alessandro Romano
+                    {getUserFullName()}
                   </p>
                   <p className="text-[10px] text-slate-500 dark:text-slate-400">
-                    Admin • Studio legale
+                    {getRuoloLabel()} • Studio legale
                   </p>
                 </div>
               </div>

@@ -10,13 +10,18 @@ import {
   Post,
   Put,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { ClientiService } from './clienti.service';
 import { CreateClienteDto } from './dto/create-cliente.dto';
 import { UpdateClienteDto } from './dto/update-cliente.dto';
 import { ClientiDebitoriService } from '../relazioni/clienti-debitori.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { CurrentUserData } from '../auth/current-user.decorator';
 
 @Controller('clienti')
+@UseGuards(JwtAuthGuard)
 export class ClientiController {
   constructor(
     private readonly clientiService: ClientiService,
@@ -28,8 +33,13 @@ export class ClientiController {
   // GET /clienti  -> lista clienti
   // Query param: ?includeInactive=true per includere i disattivati
   @Get()
-  findAll(@Query('includeInactive') includeInactive?: string) {
-    return this.clientiService.findAll(includeInactive === 'true');
+  findAll(
+    @CurrentUser() user: CurrentUserData,
+    @Query('includeInactive') includeInactive?: string,
+  ) {
+    const includeInact = includeInactive === 'true';
+    const studioId = user.ruolo === 'admin' ? undefined : user.studioId || undefined;
+    return this.clientiService.findAll(includeInact, studioId);
   }
 
   // GET /clienti/:id  -> dettaglio singolo cliente
@@ -47,7 +57,11 @@ export class ClientiController {
 
   // POST /clienti  -> creazione nuovo cliente
   @Post()
-  create(@Body() dto: CreateClienteDto) {
+  create(@CurrentUser() user: CurrentUserData, @Body() dto: CreateClienteDto) {
+    // Se l'utente non è admin e ha uno studio, assegna automaticamente il suo studioId
+    if (user.ruolo !== 'admin' && user.studioId) {
+      dto.studioId = user.studioId;
+    }
     return this.clientiService.create(dto);
   }
 
@@ -124,5 +138,22 @@ export class ClientiController {
   ) {
     await this.clientiDebitoriService.linkDebitoreToCliente(id, debitoreId);
     return { success: true };
+  }
+
+  // ====== CONFIGURAZIONE CONDIVISIONE DASHBOARD ======
+
+  // GET /clienti/:id/condivisione -> ottieni configurazione condivisione
+  @Get(':id/condivisione')
+  getConfigurazioneCondivisione(@Param('id') id: string) {
+    return this.clientiService.getConfigurazioneCondivisione(id);
+  }
+
+  // PUT /clienti/:id/condivisione -> aggiorna configurazione condivisione
+  @Put(':id/condivisione')
+  updateConfigurazioneCondivisione(
+    @Param('id') id: string,
+    @Body() configurazione: any,
+  ) {
+    return this.clientiService.updateConfigurazioneCondivisione(id, configurazione);
   }
 }

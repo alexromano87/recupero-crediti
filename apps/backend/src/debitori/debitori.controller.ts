@@ -9,13 +9,18 @@ import {
   Post,
   Put,
   Query,
+  UseGuards,
 } from '@nestjs/common';
 import { DebitoriService } from './debitori.service';
 import { CreateDebitoreDto } from './dto/create-debitore.dto';
 import { UpdateDebitoreDto } from './dto/update-debitore.dto';
 import { ClientiDebitoriService } from '../relazioni/clienti-debitori.service';
+import { JwtAuthGuard } from '../auth/jwt-auth.guard';
+import { CurrentUser } from '../auth/current-user.decorator';
+import type { CurrentUserData } from '../auth/current-user.decorator';
 
 @Controller('debitori')
+@UseGuards(JwtAuthGuard)
 export class DebitoriController {
   constructor(
     private readonly debitoriService: DebitoriService,
@@ -27,15 +32,17 @@ export class DebitoriController {
   // Query param: ?withClientiCount=true per includere il conteggio clienti collegati
   @Get()
   findAll(
+    @CurrentUser() user: CurrentUserData,
     @Query('includeInactive') includeInactive?: string,
     @Query('withClientiCount') withClientiCount?: string,
   ) {
+    const includeInact = includeInactive === 'true';
+    const studioId = user.ruolo === 'admin' ? undefined : user.studioId || undefined;
+
     if (withClientiCount === 'true') {
-      return this.debitoriService.findAllWithClientiCount(
-        includeInactive === 'true',
-      );
+      return this.debitoriService.findAllWithClientiCount(includeInact, studioId);
     }
-    return this.debitoriService.findAll(includeInactive === 'true');
+    return this.debitoriService.findAll(includeInact, studioId);
   }
 
   // GET /debitori/:id -> dettaglio singolo debitore
@@ -60,7 +67,11 @@ export class DebitoriController {
 
   // POST /debitori -> creazione nuovo debitore
   @Post()
-  create(@Body() dto: CreateDebitoreDto) {
+  create(@CurrentUser() user: CurrentUserData, @Body() dto: CreateDebitoreDto) {
+    // Se l'utente non è admin e ha uno studio, assegna automaticamente il suo studioId
+    if (user.ruolo !== 'admin' && user.studioId) {
+      dto.studioId = user.studioId;
+    }
     return this.debitoriService.create(dto);
   }
 

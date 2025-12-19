@@ -4,12 +4,18 @@ import {
   CreateDateColumn,
   Entity,
   JoinColumn,
+  JoinTable,
   ManyToOne,
+  ManyToMany,
+  OneToMany,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { Cliente } from '../clienti/cliente.entity';
 import { Debitore } from '../debitori/debitore.entity';
+import { Avvocato } from '../avvocati/avvocato.entity';
+import { MovimentoFinanziario } from '../movimenti-finanziari/movimento-finanziario.entity';
+import { Studio } from '../studi/studio.entity';
 
 // Esito della pratica (solo se chiusa)
 export type EsitoPratica = 'positivo' | 'negativo' | null;
@@ -42,12 +48,32 @@ export class Pratica {
   @JoinColumn({ name: 'clienteId' })
   cliente: Cliente;
 
+  @Column({ type: 'uuid', nullable: true })
+  studioId: string | null;
+
+  @ManyToOne(() => Studio, (studio) => studio.pratiche, { nullable: true })
+  @JoinColumn({ name: 'studioId' })
+  studio: Studio | null;
+
   @Column({ type: 'uuid' })
   debitoreId: string;
 
   @ManyToOne(() => Debitore, { onDelete: 'RESTRICT' })
   @JoinColumn({ name: 'debitoreId' })
   debitore: Debitore;
+
+  // --- Relazione con avvocati (many-to-many) ---
+  @ManyToMany(() => Avvocato, (avvocato) => avvocato.pratiche)
+  @JoinTable({
+    name: 'pratiche_avvocati',
+    joinColumn: { name: 'praticaId', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'avvocatoId', referencedColumnName: 'id' },
+  })
+  avvocati: Avvocato[];
+
+  // --- Relazione con movimenti finanziari (one-to-many) ---
+  @OneToMany(() => MovimentoFinanziario, (movimento) => movimento.pratica)
+  movimentiFinanziari: MovimentoFinanziario[];
 
   // --- Fase corrente (ID hardcoded, es. 'fase-001') ---
   @Column({ type: 'varchar', length: 20, default: 'fase-001' })

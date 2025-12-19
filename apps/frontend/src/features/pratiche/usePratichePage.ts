@@ -17,6 +17,7 @@ import {
 import { fetchFasi, type Fase } from '../../api/fasi';
 import { fetchClienti, type Cliente } from '../../api/clienti';
 import { fetchDebitoriForCliente, type Debitore } from '../../api/debitori';
+import { avvocatiApi, type Avvocato } from '../../api/avvocati';
 
 export interface UsePratichePageOptions {
   initialClienteId?: string | null;
@@ -45,6 +46,10 @@ export function usePratichePage(options: UsePratichePageOptions = {}) {
   const [debitoriForCliente, setDebitoriForCliente] = useState<Debitore[]>([]);
   const [loadingDebitori, setLoadingDebitori] = useState(false);
 
+  // === Avvocati per form ===
+  const [avvocati, setAvvocati] = useState<Avvocato[]>([]);
+  const [loadingAvvocati, setLoadingAvvocati] = useState(false);
+
   // === Pratica selezionata (dettaglio) ===
   const [selectedPraticaId, setSelectedPraticaId] = useState<string | null>(
     options.initialPraticaId || null
@@ -56,6 +61,7 @@ export function usePratichePage(options: UsePratichePageOptions = {}) {
   const [newForm, setNewForm] = useState<PraticaCreatePayload>({
     clienteId: '',
     debitoreId: '',
+    avvocatiIds: [],
     capitale: 0,
     anticipazioni: 0,
     compensiLegali: 0,
@@ -80,6 +86,7 @@ export function usePratichePage(options: UsePratichePageOptions = {}) {
   useEffect(() => {
     loadFasi();
     loadClienti();
+    loadAvvocati();
   }, []);
 
   // === Carica pratiche quando cambia il filtro cliente o showInactive ===
@@ -184,6 +191,20 @@ export function usePratichePage(options: UsePratichePageOptions = {}) {
     }
   };
 
+  const loadAvvocati = async () => {
+    try {
+      setLoadingAvvocati(true);
+      console.log('🔄 Caricamento avvocati...');
+      const data = await avvocatiApi.getAll();
+      console.log('✅ Avvocati caricati:', data);
+      setAvvocati(data);
+    } catch (err: any) {
+      console.error('❌ Errore caricamento avvocati:', err);
+    } finally {
+      setLoadingAvvocati(false);
+    }
+  };
+
   // === Handlers ===
 
   const handleSelectPratica = useCallback((praticaId: string | null) => {
@@ -220,6 +241,7 @@ export function usePratichePage(options: UsePratichePageOptions = {}) {
     setNewForm({
       clienteId: '',
       debitoreId: '',
+      avvocatiIds: [],
       capitale: 0,
       anticipazioni: 0,
       compensiLegali: 0,
@@ -438,6 +460,8 @@ export function usePratichePage(options: UsePratichePageOptions = {}) {
     loadingClienti,
     debitoriForCliente,
     loadingDebitori,
+    avvocati,
+    loadingAvvocati,
     error,
 
     // Filtri

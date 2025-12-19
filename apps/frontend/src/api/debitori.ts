@@ -169,7 +169,8 @@ export function linkDebitoreToCliente(
 
 // ====== Helper functions ======
 
-export function getDebitoreDisplayName(d: Debitore): string {
+export function getDebitoreDisplayName(d: Debitore | { tipoSoggetto?: 'persona_fisica' | 'persona_giuridica'; nome?: string; cognome?: string; ragioneSociale?: string } | undefined): string {
+  if (!d) return '(N/D)';
   if (d.tipoSoggetto === 'persona_fisica') {
     const full = `${d.nome ?? ''} ${d.cognome ?? ''}`.trim();
     return full || '(Senza nome)';

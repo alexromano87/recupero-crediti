@@ -5,8 +5,9 @@ import {
   BadRequestException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { Pratica, StoricoFase } from './pratica.entity';
+import { Avvocato } from '../avvocati/avvocato.entity';
 import { CreatePraticaDto } from './dto/create-pratica.dto';
 import { UpdatePraticaDto } from './dto/update-pratica.dto';
 import { CambiaFaseDto } from './dto/cambia-fase.dto';
@@ -17,18 +18,27 @@ export class PraticheService {
   constructor(
     @InjectRepository(Pratica)
     private readonly repo: Repository<Pratica>,
+    @InjectRepository(Avvocato)
+    private readonly avvocatiRepo: Repository<Avvocato>,
     private readonly fasiService: FasiService,
   ) {}
 
   /**
    * Restituisce tutte le pratiche.
    * @param includeInactive - se true, include anche le pratiche disattivate
+   * @param studioId - se fornito, filtra per studio
    */
-  async findAll(includeInactive = false): Promise<Pratica[]> {
-    const where = includeInactive ? {} : { attivo: true };
+  async findAll(includeInactive = false, studioId?: string): Promise<Pratica[]> {
+    const where: any = includeInactive ? {} : { attivo: true };
+
+    // Se studioId è fornito, filtra per studio
+    if (studioId) {
+      where.studioId = studioId;
+    }
+
     return this.repo.find({
       where,
-      relations: ['cliente', 'debitore'],
+      relations: ['cliente', 'debitore', 'avvocati', 'movimentiFinanziari', 'studio'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -45,7 +55,7 @@ export class PraticheService {
       : { clienteId, attivo: true };
     return this.repo.find({
       where,
-      relations: ['cliente', 'debitore'],
+      relations: ['cliente', 'debitore', 'avvocati', 'movimentiFinanziari'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -62,7 +72,7 @@ export class PraticheService {
       : { debitoreId, attivo: true };
     return this.repo.find({
       where,
-      relations: ['cliente', 'debitore'],
+      relations: ['cliente', 'debitore', 'avvocati', 'movimentiFinanziari'],
       order: { createdAt: 'DESC' },
     });
   }
@@ -73,7 +83,7 @@ export class PraticheService {
   async findOne(id: string): Promise<Pratica> {
     const pratica = await this.repo.findOne({
       where: { id },
-      relations: ['cliente', 'debitore'],
+      relations: ['cliente', 'debitore', 'avvocati', 'movimentiFinanziari'],
     });
     if (!pratica) {
       throw new NotFoundException(`Pratica con ID ${id} non trovata`);
@@ -110,11 +120,25 @@ export class PraticheService {
       },
     ];
 
+    // Carica avvocati se specificati
+    let avvocati: Avvocato[] = [];
+    if (dto.avvocatiIds && dto.avvocatiIds.length > 0) {
+      avvocati = await this.avvocatiRepo.find({
+        where: { id: In(dto.avvocatiIds) },
+      });
+      if (avvocati.length !== dto.avvocatiIds.length) {
+        throw new BadRequestException('Uno o più avvocati non trovati');
+      }
+    }
+
+    const { avvocatiIds, ...dtoWithoutAvvocati } = dto;
+
     const pratica = this.repo.create({
-      ...dto,
+      ...dtoWithoutAvvocati,
       faseId: faseIniziale.id,
       aperta: dto.aperta !== undefined ? dto.aperta : true,
       storico,
+      avvocati,
       dataAffidamento: dto.dataAffidamento
         ? new Date(dto.dataAffidamento)
         : new Date(),
@@ -146,9 +170,26 @@ export class PraticheService {
       pratica.dataChiusura = new Date();
     }
 
+    // Gestisci aggiornamento avvocati
+    if (dto.avvocatiIds !== undefined) {
+      if (dto.avvocatiIds.length > 0) {
+        const avvocati = await this.avvocatiRepo.find({
+          where: { id: In(dto.avvocatiIds) },
+        });
+        if (avvocati.length !== dto.avvocatiIds.length) {
+          throw new BadRequestException('Uno o più avvocati non trovati');
+        }
+        pratica.avvocati = avvocati;
+      } else {
+        pratica.avvocati = [];
+      }
+    }
+
+    const { avvocatiIds, ...dtoWithoutAvvocati } = dto;
+
     // Aggiorna i campi
     Object.assign(pratica, {
-      ...dto,
+      ...dtoWithoutAvvocati,
       dataAffidamento: dto.dataAffidamento
         ? new Date(dto.dataAffidamento)
         : pratica.dataAffidamento,

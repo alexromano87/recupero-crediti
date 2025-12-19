@@ -11,6 +11,21 @@ export type TipologiaAzienda =
   | 'snc'
   | 'sas';
 
+export interface ConfigurazioneCondivisione {
+  abilitata: boolean;
+  dashboard: {
+    stats: boolean;
+    kpi: boolean;
+  };
+  pratiche: {
+    elenco: boolean;
+    dettagli: boolean;
+    documenti: boolean;
+    movimentiFinanziari: boolean;
+    timeline: boolean;
+  };
+}
+
 export interface Cliente {
   id: string;
   ragioneSociale: string;
@@ -34,6 +49,8 @@ export interface Cliente {
   pec?: string;
 
   attivo: boolean;
+
+  configurazioneCondivisione?: ConfigurazioneCondivisione;
 
   createdAt: string;
   updatedAt: string;
@@ -83,4 +100,19 @@ export function fetchPraticheCountForCliente(
   id: string,
 ): Promise<{ count: number }> {
   return api.get<{ count: number }>(`/clienti/${id}/pratiche-count`);
+}
+
+// ====== Configurazione Condivisione ======
+
+export function fetchConfigurazioneCondivisione(
+  id: string,
+): Promise<ConfigurazioneCondivisione> {
+  return api.get<ConfigurazioneCondivisione>(`/clienti/${id}/condivisione`);
+}
+
+export function updateConfigurazioneCondivisione(
+  id: string,
+  configurazione: ConfigurazioneCondivisione,
+): Promise<Cliente> {
+  return api.put<Cliente>(`/clienti/${id}/condivisione`, configurazione);
 }

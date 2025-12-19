@@ -26,8 +26,17 @@ export interface NewDebitoreFormState {
   ragioneSociale: string;
   codiceFiscale: string;
   partitaIva: string;
+  dataNascita: string;
+  luogoNascita: string;
+  indirizzo: string;
+  cap: string;
+  citta: string;
+  provincia: string;
+  nazione: string;
   telefono: string;
   email: string;
+  pec: string;
+  referente: string;
 }
 
 // Form state completo per dettaglio/modifica debitore
@@ -61,8 +70,17 @@ const INITIAL_NEW_FORM: NewDebitoreFormState = {
   ragioneSociale: '',
   codiceFiscale: '',
   partitaIva: '',
+  dataNascita: '',
+  luogoNascita: '',
+  indirizzo: '',
+  cap: '',
+  citta: '',
+  provincia: '',
+  nazione: '',
   telefono: '',
   email: '',
+  pec: '',
+  referente: '',
 };
 
 const INITIAL_DETAIL_FORM: DebitoreFormState = {
